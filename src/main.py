@@ -6,7 +6,7 @@ import json
 
 #file = "./vidya/0op.mp4"
 #file = sys.argv[1]
-file = "./Season 5 Trailer [2327495449].mp4"
+file = "A:/Desktop/Sewerslvt - Ecifircas (Moral Orel Music Video) [2EXiI5ez7nk].webm"
 #file = "./Alberto Balsalm Cover With The Wrong Instruments [-Eq9cpb6-8I]-1.webm"
 
 #Calculate the video bitrate to meet the file size ( megabyte-limit * 8 * 1024 * 1024 / (1000 * video-length-seconds) - audio-bitrate) )
@@ -60,10 +60,11 @@ else:
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout)
     if b"N/A" in audioBitDepth:
-        if "BitDepth" in mediaInfoOut["media"]["track"][2]:
-            audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitDepth"])
-        else:
+        if "BitRate" in mediaInfoOut["media"]["track"][2]:
             audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitRate"])/1000
+        else:
+            audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitDepth"])
+            audioBitrate = 96
     #take sample rate x nummber of channels (default 2) x 2 (bits to byts) / 100 to make kilobyte
     #audioBitrate = (4800*(float(audioChannels)if not b"N/A" in audioChannels else 2)*2)/100
     #audioBitrate = 96  
@@ -97,7 +98,7 @@ videoSize = (subprocess.run(["ffprobe", "-v", "error", "-select_streams",
 videoSize[0], videoSize[1] = float(videoSize[0]), float(videoSize[1])
 videoXYRatio = videoSize[0]/videoSize[1]
 
-targetVideoBitrate = a if (a := ((20 * 8 * 1024 * 1024) / ((1000 * videoLength) - (audioBitrate)))) < videoBitrate else videoBitrate
+targetVideoBitrate = a if (a := ((24 * 8 * 1024 * 1024) / ((1000 * videoLength) - (audioBitrate)))) < videoBitrate else videoBitrate
 
 print("--videoBitrate--"+str(videoBitrate))
 print("--targetVideoBitrate--"+str(targetVideoBitrate))
@@ -115,7 +116,7 @@ videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoB
                             "-bufsize", f"{targetVideoBitrate/2}k", "-minrate", "0k",
                             "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
                             "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "12",
-                            "-threads", "8", "-row-mt", "1",
+                            "-threads", "0", "-row-mt", "1",
                             "-pass", "1", "-an", "-f", "null", "NUL"])
 
 videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoBitrate}k",
@@ -123,7 +124,7 @@ videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoB
                             "-bufsize", f"{targetVideoBitrate/2}k", "-minrate", "0k",
                             "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
                             "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "12",
-                            "-threads", "8", "-row-mt", "1",
+                            "-threads", "0", "-row-mt", "1",
                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={targetVideoBitrate}",
                             "-pass", "2", "-c:a", audioCodec, "-frame_duration", "20",
                             "-b:a", f"{audioBitrate}k",
