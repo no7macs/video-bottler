@@ -10,7 +10,7 @@ from contextlib import contextmanager
 if len(sys.argv) >= 2:
     file = sys.argv[1]
 else:
-    file = "A:/Desktop/BzDjrdNQBMoCkLLS.mp4"
+    file = "A:/Desktop/Bim8UCQkFCOlQ8aX.mp4"
 
 @contextmanager
 def tempFileName(file) -> str:
@@ -36,7 +36,7 @@ class encodeAndValue:
         #  video size
         self.videoWidth = float(self.ffmpegInfoOut["streams"][0]["width"])
         self.videoHeight = float(self.ffmpegInfoOut["streams"][0]["height"])
-        self.videoXYRatio = self.videoHeight/self.videoWidth
+        self.videoXYRatio = self.videoWidth/self.videoHeight
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
 
@@ -78,8 +78,8 @@ class encodeAndValue:
         return(self.targetVideoBitrate)
 
     def setTargetVideoSize(self) -> float:
-        self.targetVideoWidth = self.videoHeight / self.videoXYRatio
-        self.targetVideoHeight = self.videoHeight * self.bitrateDifference
+        self.targetVideoWidth = self.videoWidth * self.bitrateDifference
+        self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
         return(self.targetVideoWidth, self.targetVideoHeight)
     
