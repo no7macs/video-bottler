@@ -7,93 +7,87 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 
-@contextmanager
-def tempFileName(file):
-    dir = tempfile.mkdtemp()
-    yield os.path.join(dir, os.path.basename(file))
-    shutil.rmtree(dir)
-
 if len(sys.argv) >= 2:
     file = sys.argv[1]
 else:
-    file = "A:/Desktop/Ordio - 3 in 1 [c76DZmiKhDI].mkv"
+    file = "A:/Desktop/BzDjrdNQBMoCkLLS.mp4"
 
-videoLength = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries",
-                                    "format=duration", "-of",
-                                    "default=noprint_wrappers=1:nokey=1", file],
-                                    stdout = subprocess.PIPE,
-                                    stderr = subprocess.STDOUT).stdout)
-print(videoLength)
+@contextmanager
+def tempFileName(file) -> str:
+    dir = tempfile.mkdtemp()
+    yield os.path.join(dir, os.path.basename(file))
+    shutil.rmtree(dir)  
 
-mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", file], 
-                                stdout = subprocess.PIPE,
-                                stderr = subprocess.STDOUT).stdout))
-
-audioBitrate = (subprocess.run(["ffprobe", "-v", "error", "-select_streams",
-                                "a:0", "-show_entries", "stream=bit_rate",
-                                "-of", "compact=p=0:nk=1", file], 
-                                stdout = subprocess.PIPE,
-                                stderr = subprocess.STDOUT).stdout)
-
-if not b"N/A" in audioBitrate: 
-    audioBitrate = float(audioBitrate)/1000
-else:
-    audioChannels = (subprocess.run(["ffprobe", "-v", "error", "-select_streams",
-                                        "a:0", "-show_entries", "stream=channels",
-                                        "-of", "compact=p=0:nk=1", file], 
+class encodeAndValue:
+    def __init__(self) -> None:
+        self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", 
+                                        "-show_format", "-show_streams", file],
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout)
-    if "BitRate" in mediaInfoOut["media"]["track"][2]:
-        audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitRate"])/1000
-    else:
-        #audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitDepth"])
-        with tempFileName(file) as tempFilename:
-            #ffmpeg -i input-video.avi -vn -acodec copy output-audio.aac
-            audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", tempFilename], 
-                                           stdout=subprocess.PIPE, 
-                                           stderr=subprocess.PIPE)
-            audioTime = float(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", 
-                                            "-show_entries", "format=duration", "-of",
-                                            "default=noprint_wrappers=1:nokey=1", tempFilename],
-                                            stdout = subprocess.PIPE,
-                                            stderr = subprocess.STDOUT).stdout)
-            audioFileSize = os.path.getsize(tempFilename)*8/1024
-            audioBitrate = (audioFileSize/audioTime)
-#audioBitrate = 60
-print("--audio bitrate--"+str(audioBitrate))
+        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", file], 
+                                        stdout = subprocess.PIPE,
+                                        stderr = subprocess.STDOUT).stdout))      
+        self.audioBitrate = 0
+        self.videoBitrate = 0
+        self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
+        print(self.videoLength)
+        self.targetVideoBitrate = 0
+        self.bitrateDifference = 0
+        #  video size
+        self.videoWidth = float(self.ffmpegInfoOut["streams"][0]["width"])
+        self.videoHeight = float(self.ffmpegInfoOut["streams"][0]["height"])
+        self.videoXYRatio = self.videoHeight/self.videoWidth
+        self.targetVideoWidth = float(0)
+        self.targetVideoHeight = float(0)
 
-videoBitrate = (subprocess.run(["ffprobe", "-v", "quiet", "-select_streams",
-                                    "v:0", "-show_entries", "stream=bit_rate", 
-                                    "-of", "default=noprint_wrappers=1:nokey=1", file],
-                                    stdout = subprocess.PIPE,
-                                    stderr = subprocess.STDOUT).stdout)
-#if ffmpeg couldn't find anything in the bitrate tag, subtract the audio bitrate from the overall bitrate from mediainfo
-if b"N/A" in videoBitrate:
-    videoBitrate = (float(mediaInfoOut["media"]["track"][0]["OverallBitRate"]) - (audioBitrate*1000))/1000
-else:
-    videoBitrate = float(videoBitrate)
-#videoBitrate = 99999999 if b"N/A" in videoBitrate else float(videoBitrate)/1000
+    def setSourceAudioBitrate(self) -> float:
+        if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
+            self.audioBitrate = float(self.ffmpegInfoOut["streams"][1]["bit_rate"])/1000
+        elif "BitRate" in self.mediaInfoOut["media"]["track"][2]:
+            self.audioBitrate = float(self.mediaInfoOut["media"]["track"][2]["BitRate"])/1000
+        else:
+            #audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitDepth"])
+            with tempFileName(file) as self.tempFilename:
+                #  copy audio stream with same conatiner into temp folder
+                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFilename], 
+                                                    stdout=subprocess.PIPE, 
+                                                    stderr=subprocess.PIPE)
+                #  with audio stream time and temp file size, get bitrate
+                self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
+                self.audioFileSize = os.path.getsize(self.tempFilename)*8/1024
+                self.audioBitrate = float(self.audioFileSize/self.audioTime)
+        #audioBitrate = 60
+        print("--audio bitrate--"+str(self.audioBitrate))
+        return(self.audioBitrate)
+    
+    def setSourceVideoBitrate(self) -> float:
+        if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
+            self.videoBitrate = float(self.ffmpegInfoOut["streams"][0]["bit_rate"])/1000
+        #if ffmpeg couldn't find anything in the bitrate tag, subtract the audio bitrate from the overall bitrate from mediainfo
+        else:
+            self.videoBitrate = (float(self.mediaInfoOut["media"]["track"][0]["OverallBitRate"]) - (self.audioBitrate*1000))/1000
+        #videoBitrate = 99999999 if b"N/A" in videoBitrate else float(videoBitrate)/1000
+        print("--videoBitrate--"+str(self.videoBitrate))
+        return(self.videoBitrate)
 
-videoSize = (subprocess.run(["ffprobe", "-v", "error", "-select_streams",
-                                  "v:0", "-show_entries", "stream=width,height",
-                                  "-of", "csv=s=x:p=0", file],
-                                  stdout = subprocess.PIPE,
-                                  stderr = subprocess.STDOUT).stdout).decode('utf-8').split('x')
-videoSize[0], videoSize[1] = float(videoSize[0]), float(videoSize[1])
-videoXYRatio = videoSize[0]/videoSize[1]
+    def setTargetVideoBitrate(self) -> float:
+        #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
+        self.targetVideoBitrate = a if (a := ((5.8 * 8 * 1024 * 1024) / ((1000 * self.videoLength) - (self.audioBitrate)))) < self.videoBitrate else self.videoBitrate
+        self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
+        print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
+        return(self.targetVideoBitrate)
 
-#min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-print((5.8 * 8 * 1024 * 1024))
-time.sleep(30)
-targetVideoBitrate = a if (a := ((5.8 * 8 * 1024 * 1024) / ((1000 * videoLength) - (audioBitrate)))) < videoBitrate else videoBitrate
-bitrateDifference = targetVideoBitrate/videoBitrate
-
-print("--videoBitrate--"+str(videoBitrate))
-print("--targetVideoBitrate--"+str(targetVideoBitrate))
-
-#videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
-videoSize[0] = videoSize[0] * bitrateDifference
-videoSize[1] = videoSize[0] / videoXYRatio
+    def setTargetVideoSize(self) -> float:
+        self.targetVideoWidth = self.videoHeight / self.videoXYRatio
+        self.targetVideoHeight = self.videoHeight * self.bitrateDifference
+        #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
+        return(self.targetVideoWidth, self.targetVideoHeight)
+    
+valueTings = encodeAndValue()
+audioBitrate = valueTings.setSourceAudioBitrate()
+valueTings.setSourceVideoBitrate()
+targetVideoBitrate = valueTings.setTargetVideoBitrate()
+videoX, videoY = valueTings.setTargetVideoSize()
 
 videoEncoder = "libvpx-vp9"
 audioCodec = "libopus"
@@ -102,7 +96,7 @@ fileEnding = "webm"
 videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoBitrate}k",
                             "-c:v",  videoEncoder,  "-maxrate", f"{(targetVideoBitrate/100)*80}k", 
                             "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
-                            "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
+                            "-vf", f"scale={videoX}:{videoY}",
                             "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                             "-threads", "0", "-row-mt", "1",
                             "-pass", "1", "-an", "-f", "null", "NUL"])
@@ -110,7 +104,7 @@ videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoB
 videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoBitrate}k",
                             "-c:v", videoEncoder, "-maxrate", f"{(targetVideoBitrate/100)*80}k",
                             "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
-                            "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
+                            "-vf", f"scale={videoX}:{videoY}",
                             "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                             "-threads", "0", "-row-mt", "1",
                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={targetVideoBitrate}",
