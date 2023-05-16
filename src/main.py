@@ -83,14 +83,16 @@ videoSize[0], videoSize[1] = float(videoSize[0]), float(videoSize[1])
 videoXYRatio = videoSize[0]/videoSize[1]
 
 #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-targetVideoBitrate = a if (a := ((24 * 8 * 1024 * 1024) / ((1000 * videoLength) - (audioBitrate)))) < videoBitrate else videoBitrate
+print((5.8 * 8 * 1024 * 1024))
+time.sleep(30)
+targetVideoBitrate = a if (a := ((5.8 * 8 * 1024 * 1024) / ((1000 * videoLength) - (audioBitrate)))) < videoBitrate else videoBitrate
 bitrateDifference = targetVideoBitrate/videoBitrate
 
 print("--videoBitrate--"+str(videoBitrate))
 print("--targetVideoBitrate--"+str(targetVideoBitrate))
 
 #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
-videoSize[0] = videoSize[0] / bitrateDifference
+videoSize[0] = videoSize[0] * bitrateDifference
 videoSize[1] = videoSize[0] / videoXYRatio
 
 videoEncoder = "libvpx-vp9"
@@ -101,7 +103,7 @@ videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoB
                             "-c:v",  videoEncoder,  "-maxrate", f"{(targetVideoBitrate/100)*80}k", 
                             "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
                             "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
-                            "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "12",
+                            "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                             "-threads", "0", "-row-mt", "1",
                             "-pass", "1", "-an", "-f", "null", "NUL"])
 
@@ -109,7 +111,7 @@ videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoB
                             "-c:v", videoEncoder, "-maxrate", f"{(targetVideoBitrate/100)*80}k",
                             "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
                             "-vf", f"scale={videoSize[0]}:{videoSize[1]}",
-                            "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "12",
+                            "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                             "-threads", "0", "-row-mt", "1",
                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={targetVideoBitrate}",
                             "-pass", "2", "-c:a", audioCodec, "-frame_duration", "20",
