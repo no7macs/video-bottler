@@ -6,6 +6,7 @@ import json
 import shutil
 import tempfile
 from contextlib import contextmanager
+from tkinter import * 
 
 if len(sys.argv) >= 2:
     file = sys.argv[1]
@@ -26,7 +27,8 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout)
         self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", file], 
                                         stdout = subprocess.PIPE,
-                                        stderr = subprocess.STDOUT).stdout))      
+                                        stderr = subprocess.STDOUT).stdout))  
+        self.maxTargetSize = (5.8 * 8 * 1024 * 1024)  
         self.audioBitrate = 0
         self.videoBitrate = 0
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
@@ -72,7 +74,7 @@ class encodeAndValue:
 
     def setTargetVideoBitrate(self) -> float:
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.targetVideoBitrate = a if (a := ((5.8 * 8 * 1024 * 1024) / ((1000 * self.videoLength) - (self.audioBitrate)))) < self.videoBitrate else self.videoBitrate
+        self.targetVideoBitrate = a if (a := (self.maxTargetSize / ((1000 * self.videoLength) - (self.audioBitrate)))) < self.videoBitrate else self.videoBitrate
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return(self.targetVideoBitrate)
@@ -82,12 +84,41 @@ class encodeAndValue:
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
         return(self.targetVideoWidth, self.targetVideoHeight)
+
+def bitrateRatioSliderUpdate(bitrateRatio):
+    #snapedRatio = min([0.1, 0.5, 0.6, 0.9],key=lambda x:abs(x-float(bitrateRatio)))
+    #bitrateRatioSlider.set(bitrateRatio)
+    testTest["text"] = str(bitrateRatio)
+    print(bitrateRatioSlider.coords())
+    print(bitrateRatioSlider.winfo_x())
+    audioBitrateLabel.place(x=(((bitrateRatioSlider.coords()[0])/2)))
+    videoBitrateLabel.place(x=((bitrateRatioSlider.coords()[0]+bitrateRatioSlider.cget("length")-videoBitrateLabel.winfo_width())/2))
+
+if __name__ == "__main__":
+    valueTings = encodeAndValue()
+    audioBitrate = valueTings.setSourceAudioBitrate()
+    videoBitrate = valueTings.setSourceVideoBitrate()
+    targetVideoBitrate = valueTings.setTargetVideoBitrate()
+    videoX, videoY = valueTings.setTargetVideoSize()
+
+    root = Tk()
+    root.title("Video Bottler")
+
+    bitrateSliderFrame = Frame(root)
+    bitrateSliderFrame.pack(anchor = W, expand=True, fill='both')
+    sliderValuesFrame = Frame(bitrateSliderFrame)
+    sliderValuesFrame.pack(anchor = W, expand=True, fill='both')
+    audioBitrateLabel = Label(sliderValuesFrame, text='0kb/s')
+    audioBitrateLabel.pack(side=LEFT)
+    videoBitrateLabel = Label(sliderValuesFrame, text='0kb/s')
+    videoBitrateLabel.pack(side=RIGHT)
+    bitrateRatio = DoubleVar()
+    bitrateRatioSlider = Scale(bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, variable=bitrateRatio, length=500, resolution=0.01, command=bitrateRatioSliderUpdate)
+    bitrateRatioSlider.pack(anchor = W)
     
-valueTings = encodeAndValue()
-audioBitrate = valueTings.setSourceAudioBitrate()
-valueTings.setSourceVideoBitrate()
-targetVideoBitrate = valueTings.setTargetVideoBitrate()
-videoX, videoY = valueTings.setTargetVideoSize()
+    testTest = Label(root, text='0')
+    testTest.pack(anchor = W)
+    root.mainloop()
 
 videoEncoder = "libvpx-vp9"
 audioCodec = "libopus"
