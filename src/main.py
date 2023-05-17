@@ -8,11 +8,6 @@ import tempfile
 from contextlib import contextmanager
 from tkinter import * 
 
-if len(sys.argv) >= 2:
-    file = sys.argv[1]
-else:
-    file = "A:/Desktop/Bim8UCQkFCOlQ8aX.mp4"
-
 @contextmanager
 def tempFileName(file) -> str:
     dir = tempfile.mkdtemp()
@@ -20,12 +15,13 @@ def tempFileName(file) -> str:
     shutil.rmtree(dir)  
 
 class encodeAndValue:
-    def __init__(self) -> None:
+    def __init__(self, file) -> None:
+        self.file = file
         self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", 
-                                        "-show_format", "-show_streams", file],
+                                        "-show_format", "-show_streams", self.file],
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout)
-        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", file], 
+        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout))  
         self.maxTargetSize = (5.8 * 8 * 1024 * 1024)  
@@ -55,7 +51,10 @@ class encodeAndValue:
                                                     stdout=subprocess.PIPE, 
                                                     stderr=subprocess.PIPE)
                 #  with audio stream time and temp file size, get bitrate
-                self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
+                if "duration" in self.ffmpegInfoOut["streams"][1]:
+                    self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
+                else:
+                    self.audioTime = float(self.mediaInfoOut["media"]["track"][2]["Duration"])
                 self.audioFileSize = os.path.getsize(self.tempFilename)*8/1024
                 self.audioBitrate = float(self.audioFileSize/self.audioTime)
         #audioBitrate = 60
@@ -113,7 +112,13 @@ class bitrateSlider(Frame):
 
 
 if __name__ == "__main__":
-    valueTings = encodeAndValue()
+
+    if len(sys.argv) >= 2:
+        file = sys.argv[1]
+    else:
+        file = "A:/Desktop/Bim8UCQkFCOlQ8aX.mp4"
+
+    valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
     videoBitrate = valueTings.setSourceVideoBitrate()
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
