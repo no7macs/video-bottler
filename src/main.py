@@ -38,6 +38,9 @@ class encodeAndValue:
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
 
+    def getMaxTargetSize(self) -> int:
+        return(self.maxTargetSize)
+
     def setSourceAudioBitrate(self) -> float:
         if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
             self.audioBitrate = float(self.ffmpegInfoOut["streams"][1]["bit_rate"])/1000
@@ -88,7 +91,6 @@ class encodeAndValue:
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
-
         self.bitrateSliderFrame = Frame(self)
         self.bitrateSliderFrame.pack(anchor = W, expand=True, fill='both')
         self.sliderValuesFrame = Frame(self.bitrateSliderFrame)
@@ -100,16 +102,17 @@ class bitrateSlider(Frame):
         self.bitrateRatio = DoubleVar()
         self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, variable=self.bitrateRatio, length=500, resolution=0.01, command=self.bitrateRatioSliderUpdate)
         self.bitrateRatioSlider.pack(anchor = W)
+        self.audioBitrateLabel["text"] = str(round(audioBitrate, 2))
+        self.videoBitrateLabel["text"] = str(round(targetVideoBitrate, 2))
+        self.bitrateRatioSlider.set(audioBitrate/targetVideoBitrate)
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
         #snapedRatio = min([0.1, 0.5, 0.6, 0.9],key=lambda x:abs(x-float(bitrateRatio)))
         #bitrateRatioSlider.set(bitrateRatio)
         testTest["text"] = str(bitrateRatio)
-        print(self.bitrateRatioSlider.coords())
-        print(self.bitrateRatioSlider.winfo_x())
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-
+        self.audioBitrateLabel["text"] = str(round((valueTings.getMaxTargetSize()/8/1024/1024)/float(bitrateRatio),3))+"kb/s"
 
 if __name__ == "__main__":
 
@@ -124,12 +127,12 @@ if __name__ == "__main__":
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
     videoX, videoY = valueTings.setTargetVideoSize()
 
-    #root = Tk()
-    #root.title("Video Bottler")
-    #slider = bitrateSlider(root).pack(anchor=W)
-    #testTest = Label(root, text='0')
-    #testTest.pack(anchor = W)
-    #root.mainloop()
+    root = Tk()
+    root.title("Video Bottler")
+    slider = bitrateSlider(root).pack(anchor=W)
+    testTest = Label(root, text='0')
+    testTest.pack(anchor = W)
+    root.mainloop()
 
     videoEncoder = "libvpx-vp9"
     audioCodec = "libopus"
