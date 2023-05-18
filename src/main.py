@@ -105,24 +105,35 @@ class bitrateSlider(Frame):
         self.audioBitrateLabel.pack(side=LEFT)
         self.videoBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
         self.videoBitrateLabel.pack(side=RIGHT)
-        self.bitrateRatio = DoubleVar()
-        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, variable=self.bitrateRatio, length=500, resolution=0.001, command=self.bitrateRatioSliderUpdate)
+        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.001, command=self.bitrateRatioSliderUpdate)
         self.bitrateRatioSlider.pack(anchor = W)
-        self.audioBitrateLabel["text"] = str(round(targetAudioBitrate, 2))
-        self.videoBitrateLabel["text"] = str(round(targetVideoBitrate, 2))
-        self.bitrateRatioSlider.set(targetAudioBitrate/(targetAudioBitrate+targetVideoBitrate))
+        self.snapToCommonAudio = False
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
-        #snapedRatio = min([a/(targetAudioBitrate+targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
-        #self.bitrateRatioSlider.set(snapedRatio)
+        if self.snapToCommonAudio == True:
+            self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
+            self.bitrateRatioSlider.set(self.snapedRatio)
         testTest["text"] = str(bitrateRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.alteredAudioBitrate = (targetAudioBitrate+targetVideoBitrate)*self.bitrateRatioSlider.get()
-        self.alteredVideoBitrate = (targetAudioBitrate+targetVideoBitrate)-float(self.alteredAudioBitrate)
+        self.alteredAudioBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)*self.bitrateRatioSlider.get()
+        self.alteredVideoBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate)
         self.audioBitrateLabel["text"] = str(round(self.alteredAudioBitrate,3))
         self.videoBitrateLabel["text"] = str(round(self.alteredVideoBitrate,3))
-       
+
+    def setDefaults(self, targetVideoBitrate:float, targetAudioBitrate:float) -> None:
+        self.targetVideoBitrate = targetVideoBitrate
+        self.targetAudioBitrate = targetAudioBitrate
+        self.audioBitrateLabel["text"] = str(round(self.targetAudioBitrate, 3))
+        self.videoBitrateLabel["text"] = str(round(self.targetVideoBitrate, 3))
+        self.bitrateRatioSlider.set(self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate))
+
+    def snapToCommonAudioValues(self, state:bool) -> None:
+        self.snapToCommonAudio = state
+    
+    def getBitrate(self) -> float:
+        return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+
 if __name__ == "__main__":
 
     if len(sys.argv) >= 2:
@@ -139,30 +150,39 @@ if __name__ == "__main__":
 
     root = Tk()
     root.title("Video Bottler")
-    slider = bitrateSlider(root).pack(anchor=W)
+    snapToAudio = IntVar()
+    snapToAudioValuesBox = Checkbutton(root, text="Snap to common audio bitrates", variable=snapToAudio, onvalue=1, offvalue=0, command=lambda:videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(snapToAudio.get())))
+    snapToAudioValuesBox.pack(anchor=W)
+    videoaudioBitrateSlider = bitrateSlider(root)
+    videoaudioBitrateSlider.pack(anchor=W)
+    videoaudioBitrateSlider.setDefaults(targetVideoBitrate, targetAudioBitrate)
     testTest = Label(root, text='0')
-    testTest.pack(anchor = W)
+    testTest.pack(anchor=W)
+    sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults(targetVideoBitrate, targetAudioBitrate))
+    sliderResetDefaultsButton.pack(anchor=W)
     root.mainloop()
 
     videoEncoder = "libvpx-vp9"
     audioCodec = "libopus"
     fileEnding = "webm"
 
-    videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoBitrate}k",
-                                "-c:v",  videoEncoder,  "-maxrate", f"{(targetVideoBitrate/100)*80}k", 
-                                "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
+    alteredAudioBitrate, alteredVideoBitrate = videoaudioBitrateSlider.getBitrate()
+
+    videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{alteredVideoBitrate}k",
+                                "-c:v",  videoEncoder,  "-maxrate", f"{(alteredVideoBitrate/100)*80}k", 
+                                "-bufsize", f"{alteredVideoBitrate*2}k", "-minrate", "0k",
                                 "-vf", f"scale={videoX}:{videoY}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1",
                                 "-pass", "1", "-an", "-f", "null", "NUL"])
 
-    videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{targetVideoBitrate}k",
-                                "-c:v", videoEncoder, "-maxrate", f"{(targetVideoBitrate/100)*80}k",
-                                "-bufsize", f"{targetVideoBitrate*2}k", "-minrate", "0k",
+    videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{alteredVideoBitrate}k",
+                                "-c:v", videoEncoder, "-maxrate", f"{(alteredVideoBitrate/100)*80}k",
+                                "-bufsize", f"{alteredVideoBitrate*2}k", "-minrate", "0k",
                                 "-vf", f"scale={videoX}:{videoY}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1",
-                                "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={targetVideoBitrate}",
+                                "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={alteredVideoBitrate}",
                                 "-pass", "2", "-c:a", audioCodec, "-frame_duration", "20",
-                                "-b:a", f"{targetAudioBitrate}k",
+                                "-b:a", f"{alteredAudioBitrate}k",
                                 f"{os.path.splitext(file)[0]}1.{fileEnding}"])
