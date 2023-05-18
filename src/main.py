@@ -26,17 +26,16 @@ class encodeAndValue:
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout))  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
-        print(self.videoLength)
-        self.upperVideoSize = (5.8*8*1024*1024)
+        print("--videoLength--"+str(self.videoLength))
+        self.upperVideoSize = (5.8*8*1024*1024) #megabits
+        #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
+        self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
         self.videoWidth = float(self.ffmpegInfoOut["streams"][0]["width"])
         self.videoHeight = float(self.ffmpegInfoOut["streams"][0]["height"])
         self.videoXYRatio = self.videoWidth/self.videoHeight
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
-
-    def getMaxTargetSize(self) -> int:
-        return(self.maxTargetSize)
 
     def setSourceAudioBitrate(self) -> float:
         if "duration" in self.ffmpegInfoOut["streams"][1]:
@@ -68,12 +67,22 @@ class encodeAndValue:
         print("--videoBitrate--"+str(self.videoBitrate))
         return(self.videoBitrate)
 
+    #this one NEEDS to be changed and made to actually do something (its very cringe)
+    def setTargetAudioBitrate(self) -> float:
+        self.targetAudioBitrate = self.audioBitrate
+        #if (self.targetAudioBitrate*self.audioTime)*1024 > self.upperVideoSize:
+        #    for a,b in enumerate(self.commonAudioValues):
+        #        if b > self.targetAudioBitrate:
+        #            self.targetAudioBitrate = self.commonAudioValues[a-1]
+        #            break
+        print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
+        self.targetAudioBitrate = 60
+        return(self.targetAudioBitrate)
+
     def setTargetVideoBitrate(self) -> float:
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.calculatedUpperVideoSize = (self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a)
-        print(self.calculatedUpperVideoSize)
-        print(os.path.getsize(self.file)*8)
-        self.targetVideoBitrate = ((self.calculatedUpperVideoSize - self.audioBitrate) / (1000 * self.videoLength))
+        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.videoLength)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
+        #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return(self.targetVideoBitrate)
@@ -82,7 +91,7 @@ class encodeAndValue:
         self.targetVideoWidth = self.videoWidth * self.bitrateDifference
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
-        return(self.targetVideoWidth, self.targetVideoHeight)
+        return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
 
 
 class bitrateSlider(Frame):
@@ -97,32 +106,36 @@ class bitrateSlider(Frame):
         self.videoBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
         self.videoBitrateLabel.pack(side=RIGHT)
         self.bitrateRatio = DoubleVar()
-        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, variable=self.bitrateRatio, length=500, resolution=0.01, command=self.bitrateRatioSliderUpdate)
+        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, variable=self.bitrateRatio, length=500, resolution=0.001, command=self.bitrateRatioSliderUpdate)
         self.bitrateRatioSlider.pack(anchor = W)
-        self.audioBitrateLabel["text"] = str(round(audioBitrate, 2))
+        self.audioBitrateLabel["text"] = str(round(targetAudioBitrate, 2))
         self.videoBitrateLabel["text"] = str(round(targetVideoBitrate, 2))
-        self.bitrateRatioSlider.set(audioBitrate/targetVideoBitrate)
+        self.bitrateRatioSlider.set(targetAudioBitrate/(targetAudioBitrate+targetVideoBitrate))
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
-        #snapedRatio = min([0.1, 0.5, 0.6, 0.9],key=lambda x:abs(x-float(bitrateRatio)))
-        #bitrateRatioSlider.set(bitrateRatio)
+        #snapedRatio = min([a/(targetAudioBitrate+targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
+        #self.bitrateRatioSlider.set(snapedRatio)
         testTest["text"] = str(bitrateRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.audioBitrateLabel["text"] = str(round((valueTings.getMaxTargetSize()/8/1024/1024)/float(bitrateRatio),3))+"kb/s"
-
+        self.alteredAudioBitrate = (targetAudioBitrate+targetVideoBitrate)*self.bitrateRatioSlider.get()
+        self.alteredVideoBitrate = (targetAudioBitrate+targetVideoBitrate)-float(self.alteredAudioBitrate)
+        self.audioBitrateLabel["text"] = str(round(self.alteredAudioBitrate,3))
+        self.videoBitrateLabel["text"] = str(round(self.alteredVideoBitrate,3))
+       
 if __name__ == "__main__":
 
     if len(sys.argv) >= 2:
         file = sys.argv[1]
     else:
-        file = "A:/Desktop/rhu4pIjQxF9emfnP.mp4"
+        file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
     videoBitrate = valueTings.setSourceVideoBitrate()
+    targetAudioBitrate = valueTings.setTargetAudioBitrate()
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
-    videoX, videoY = valueTings.setTargetVideoSize()
+    videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
 
     root = Tk()
     root.title("Video Bottler")
@@ -151,5 +164,5 @@ if __name__ == "__main__":
                                 "-threads", "0", "-row-mt", "1",
                                 "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={targetVideoBitrate}",
                                 "-pass", "2", "-c:a", audioCodec, "-frame_duration", "20",
-                                "-b:a", f"{audioBitrate}k",
+                                "-b:a", f"{targetAudioBitrate}k",
                                 f"{os.path.splitext(file)[0]}1.{fileEnding}"])
