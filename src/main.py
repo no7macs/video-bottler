@@ -150,6 +150,14 @@ class selectFileWindow(Tk):
         self.fileSelectFrame()
         self.fileDownloadFrame()
 
+    def checkFile(self) -> None:
+        print("checking")
+        if not self.file == "" and os.path.exists(file):
+            self.destroy()
+
+    def getFile(self) -> str:
+        return(file)
+
     def fileSelectFrame(self):
         self.selectFileFrame = Frame(self)
         self.selectFileFrame.grid(row=0, column=0, padx=5, pady=5)
@@ -170,7 +178,7 @@ class selectFileWindow(Tk):
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
                                           filetypes = (("Video",["*.webm*","*.mp4*","*.mov*"]), ("all files", "*.*")))
-
+        self.after(1, self.checkFile)
 
 if __name__ == "__main__":
 
@@ -180,6 +188,7 @@ if __name__ == "__main__":
         file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
         selectFile = selectFileWindow()
         selectFile.mainloop()
+        print(selectFile.getFile())
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
