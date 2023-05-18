@@ -14,6 +14,7 @@ def tempFileName(file) -> str:
     yield os.path.join(dir, os.path.basename(file))
     shutil.rmtree(dir)  
 
+
 class encodeAndValue:
     def __init__(self, file) -> None:
         self.file = file
@@ -24,13 +25,9 @@ class encodeAndValue:
         self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout))  
-        self.maxTargetSize = (5.8 * 8 * 1024 * 1024)  
-        self.audioBitrate = 0
-        self.videoBitrate = 0
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print(self.videoLength)
-        self.targetVideoBitrate = 0
-        self.bitrateDifference = 0
+        self.upperVideoSize = (5.8*8*1024*1024)
         #  video size
         self.videoWidth = float(self.ffmpegInfoOut["streams"][0]["width"])
         self.videoHeight = float(self.ffmpegInfoOut["streams"][0]["height"])
@@ -42,32 +39,29 @@ class encodeAndValue:
         return(self.maxTargetSize)
 
     def setSourceAudioBitrate(self) -> float:
+        if "duration" in self.ffmpegInfoOut["streams"][1]:
+                    self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
+        else:
+            self.audioTime = float(self.mediaInfoOut["media"]["track"][2]["Duration"])
+
         if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
             self.audioBitrate = float(self.ffmpegInfoOut["streams"][1]["bit_rate"])/1000
         elif "BitRate" in self.mediaInfoOut["media"]["track"][2]:
             self.audioBitrate = float(self.mediaInfoOut["media"]["track"][2]["BitRate"])/1000
         else:
-            #audioBitrate = float(mediaInfoOut["media"]["track"][2]["BitDepth"])
             with tempFileName(file) as self.tempFilename:
                 #  copy audio stream with same conatiner into temp folder
                 self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFilename], 
                                                     stdout=subprocess.PIPE, 
                                                     stderr=subprocess.PIPE)
-                #  with audio stream time and temp file size, get bitrate
-                if "duration" in self.ffmpegInfoOut["streams"][1]:
-                    self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
-                else:
-                    self.audioTime = float(self.mediaInfoOut["media"]["track"][2]["Duration"])
                 self.audioFileSize = os.path.getsize(self.tempFilename)*8/1024
                 self.audioBitrate = float(self.audioFileSize/self.audioTime)
-        #audioBitrate = 60
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
     
     def setSourceVideoBitrate(self) -> float:
         if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
             self.videoBitrate = float(self.ffmpegInfoOut["streams"][0]["bit_rate"])/1000
-        #if ffmpeg couldn't find anything in the bitrate tag, subtract the audio bitrate from the overall bitrate from mediainfo
         else:
             self.videoBitrate = (float(self.mediaInfoOut["media"]["track"][0]["OverallBitRate"]) - (self.audioBitrate*1000))/1000
         #videoBitrate = 99999999 if b"N/A" in videoBitrate else float(videoBitrate)/1000
@@ -76,7 +70,10 @@ class encodeAndValue:
 
     def setTargetVideoBitrate(self) -> float:
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.targetVideoBitrate = a if (a := (self.maxTargetSize / ((1000 * self.videoLength) - (self.audioBitrate)))) < self.videoBitrate else self.videoBitrate
+        self.calculatedUpperVideoSize = (self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a)
+        print(self.calculatedUpperVideoSize)
+        print(os.path.getsize(self.file)*8)
+        self.targetVideoBitrate = ((self.calculatedUpperVideoSize - self.audioBitrate) / (1000 * self.videoLength))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return(self.targetVideoBitrate)
@@ -119,7 +116,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2:
         file = sys.argv[1]
     else:
-        file = "A:/Desktop/Bim8UCQkFCOlQ8aX.mp4"
+        file = "A:/Desktop/rhu4pIjQxF9emfnP.mp4"
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
