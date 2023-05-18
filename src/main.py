@@ -5,8 +5,12 @@ import time
 import json
 import shutil
 import tempfile
+from typing import Optional, Tuple, Union
+import customtkinter
 from contextlib import contextmanager
-from tkinter import * 
+from tkinter import *
+from tkinterdnd2 import DND_FILES, TkinterDnD
+import tkinter
 
 @contextmanager
 def tempFileName(file) -> str:
@@ -134,12 +138,48 @@ class bitrateSlider(Frame):
     def getBitrate(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
+
+class selectFileWindow(Tk):
+    def __init__(self, *args, **kwargs):
+        Tk.__init__(self, *args, **kwargs)
+        #self.title("Video Bottler")
+        #customtkinter.set_appearance_mode("system")
+        self.file = ""
+        #customtkinter.set_widget_scaling(1000)
+        #customtkinter.set_window_scaling(1000)
+        self.fileSelectFrame()
+        self.fileDownloadFrame()
+
+    def fileSelectFrame(self):
+        self.selectFileFrame = Frame(self)
+        self.selectFileFrame.grid(row=0, column=0, padx=5, pady=5)
+        self.selectInfoLabel = Label(self.selectFileFrame, text="Drag and Drop \n or")
+        self.selectInfoLabel.grid(row=0, column=0)
+        self.browseFileButton = Button(self.selectFileFrame, text="Browse", command=self.browseForFiles)
+        self.browseFileButton.grid(row=1, column=0)
+
+    def fileDownloadFrame(self):
+        self.downloadFileFrame = Frame(self)
+        self.downloadFileFrame.grid(row=0, column=1, padx=5, pady=5)
+        self.downloadFileLabel = Label(self.downloadFileFrame, text="Download a link (yt-dlp)")
+        self.downloadFileLabel.grid(row=0, column=0)
+        downloadUrl = StringVar()
+        self.downloadEntry = Entry(self.downloadFileFrame, textvariable=downloadUrl)
+        self.downloadEntry.grid(row=1, column=0)
+
+    def browseForFiles(self):
+        self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
+                                          filetypes = (("Video",["*.webm*","*.mp4*","*.mov*"]), ("all files", "*.*")))
+
+
 if __name__ == "__main__":
 
     if len(sys.argv) >= 2:
         file = sys.argv[1]
     else:
         file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
+        selectFile = selectFileWindow()
+        selectFile.mainloop()
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
@@ -147,6 +187,13 @@ if __name__ == "__main__":
     targetAudioBitrate = valueTings.setTargetAudioBitrate()
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
     videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
+
+    '''
+    root = TkinterDnD.Tk()
+    root.drop_target_register(DND_FILES)
+    root.dnd_bind('<<Drop>>', lambda a:print(a.data))
+    root.mainloop()
+    '''
 
     root = Tk()
     root.title("Video Bottler")
