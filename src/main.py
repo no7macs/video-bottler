@@ -14,9 +14,9 @@ from tkinter import *
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
 @contextmanager
-def tempFileName(file) -> str:
+def tempFileName() -> str:
     dir = tempfile.mkdtemp()
-    yield os.path.join(dir, os.path.basename(file))
+    yield dir
     shutil.rmtree(dir)  
 
 
@@ -53,12 +53,13 @@ class encodeAndValue:
         elif "BitRate" in self.mediaInfoOut["media"]["track"][2]:
             self.audioBitrate = float(self.mediaInfoOut["media"]["track"][2]["BitRate"])/1000
         else:
-            with tempFileName(file) as self.tempFilename:
+            with tempFileName() as self.tempFilename:
                 #  copy audio stream with same conatiner into temp folder
-                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFilename], 
+                self.tempFile = os.path.join(self.tempFilename, self.file)
+                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile], 
                                                     stdout=subprocess.PIPE, 
                                                     stderr=subprocess.PIPE)
-                self.audioFileSize = os.path.getsize(self.tempFilename)*8/1024
+                self.audioFileSize = os.path.getsize(self.tempFile)*8/1024
                 self.audioBitrate = float(self.audioFileSize/self.audioTime)
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
@@ -114,6 +115,49 @@ class encodeAndValue:
     def getAlteredBitrates(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
+class ytdlpDownloader:
+    def __init__(self, url, folder):
+        self.tempFolder = folder
+        self.url = url
+
+    class MyLogger:
+        def debug(self, msg):
+            # For compatibility with youtube-dl, both debug and info are passed into debug
+            # You can distinguish them by the prefix '[debug] '
+            if msg.startswith('[debug] '):
+                pass
+            else:
+                self.info(msg)
+        def info(self, msg):
+            print(msg)
+        def warning(self, msg):
+            pass
+        def error(self, msg):
+            print(msg)
+
+    def getFormat(self, ctx):
+        formats = ctx.get("formats")[::-1]
+        bestVideo = next(a for a in formats if a['vcodec'] != "none" and a["acodec"] == 'none')
+        audioExt = {"mp4": "m4a", "webm": "webm"}[bestVideo['ext']]
+        bestAudio = next(a for a in formats if (a["acodec"] != "none" and a["vcodec"] == "none" and a["ext"] == audioExt))
+        yield {
+            'format_id': f'{bestVideo["format_id"]}+{bestAudio["format_id"]}',
+            'ext': bestVideo['ext'],
+            'requested_formats': [bestVideo, bestAudio],
+            # Must be + separated list of protocols
+            'protocol': f'{bestVideo["protocol"]}+{bestAudio["protocol"]}'
+        }
+
+    def download(self):
+        ydl_opts = {
+            'outtmpl':f"""{self.tempFolder}/%(title)s-%(id)s.%(ext)s""",
+            'cookiefile':'./youtube.com_cookies.txt',
+            'logger': self.MyLogger()
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download(self.url)
+        return(os.path.join(self.tempFolder, os.listdir(self.tempFolder)[0]))
+
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
@@ -163,7 +207,7 @@ class selectFileWindow(Tk):
         self.fileDownloadFrame()
 
     def checkFile(self) -> None:
-        print("checking")
+        print(self.file)
         if not self.file == "" and os.path.exists(self.file):
             self.destroy()
 
@@ -193,11 +237,14 @@ class selectFileWindow(Tk):
 
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
-                                          filetypes = (("Video",["*.webm*","*.mp4*","*.mov*"]), ("all files", "*.*")))
+                                          filetypes = (("Video",["*.webm*","*.mp4*","*.mov*","*.m4a*"]), ("all files", "*.*")))
         self.after(1, self.checkFile)
 
     def downloadFromUrl(self):
-        pass
+        with tempFileName() as self.tempFilename:
+            ytdlp = ytdlpDownloader(self.downloadEntry.get(), self.tempFilename)
+            self.file = ytdlp.download()
+            self.checkFile()
 
 
 if __name__ == "__main__":
