@@ -5,12 +5,13 @@ import time
 import json
 import shutil
 import tempfile
+import yt_dlp
+import tkinter
 from typing import Optional, Tuple, Union
 import customtkinter
 from contextlib import contextmanager
 from tkinter import *
 from tkinterdnd2 import DND_FILES, TkinterDnD
-import tkinter
 
 @contextmanager
 def tempFileName(file) -> str:
@@ -80,7 +81,6 @@ class encodeAndValue:
         #            self.targetAudioBitrate = self.commonAudioValues[a-1]
         #            break
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
-        self.targetAudioBitrate = 60
         return(self.targetAudioBitrate)
 
     def setTargetVideoBitrate(self) -> float:
@@ -97,6 +97,22 @@ class encodeAndValue:
         #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
         return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
 
+    def setAlteredAudioVideoBitrat(self, precentage) -> float:
+        self.audioUsagePrecentage = precentage
+        self.alteredAudioBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)*precentage
+        self.alteredVideoBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate)
+        return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+
+    def setAlteredVideoSize(self) -> float:
+        self.alteredVideoWidth = self.alteredVideoBitrate*(1-self.audioUsagePrecentage)
+        self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
+        return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
+
+    def getTargetBitrates(self) -> float:
+        return(self.targetAudioBitrate, self.targetVideoBitrate)
+    
+    def getAlteredBitrates(self) -> float:
+        return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
@@ -112,6 +128,7 @@ class bitrateSlider(Frame):
         self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.001, command=self.bitrateRatioSliderUpdate)
         self.bitrateRatioSlider.pack(anchor = W)
         self.snapToCommonAudio = False
+        self.setDefaults()
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
         if self.snapToCommonAudio == True:
@@ -120,24 +137,19 @@ class bitrateSlider(Frame):
         testTest["text"] = str(bitrateRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.alteredAudioBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)*self.bitrateRatioSlider.get()
-        self.alteredVideoBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate)
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrat(self.bitrateRatioSlider.get())
         self.audioBitrateLabel["text"] = str(round(self.alteredAudioBitrate,3))
         self.videoBitrateLabel["text"] = str(round(self.alteredVideoBitrate,3))
 
-    def setDefaults(self, targetVideoBitrate:float, targetAudioBitrate:float) -> None:
-        self.targetVideoBitrate = targetVideoBitrate
-        self.targetAudioBitrate = targetAudioBitrate
+    def setDefaults(self) -> None:
+        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetBitrates()
         self.audioBitrateLabel["text"] = str(round(self.targetAudioBitrate, 3))
         self.videoBitrateLabel["text"] = str(round(self.targetVideoBitrate, 3))
-        self.bitrateRatioSlider.set(self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate))
+        self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
+        self.bitrateRatioSlider.set(self.audioUsagePrecentage)
 
     def snapToCommonAudioValues(self, state:bool) -> None:
         self.snapToCommonAudio = state
-    
-    def getBitrate(self) -> float:
-        return(self.alteredAudioBitrate, self.alteredVideoBitrate)
-
 
 class selectFileWindow(Tk):
     def __init__(self, *args, **kwargs):
@@ -152,11 +164,11 @@ class selectFileWindow(Tk):
 
     def checkFile(self) -> None:
         print("checking")
-        if not self.file == "" and os.path.exists(file):
+        if not self.file == "" and os.path.exists(self.file):
             self.destroy()
 
     def getFile(self) -> str:
-        return(file)
+        return(self.file)
 
     def fileSelectFrame(self):
         self.selectFileFrame = Frame(self)
@@ -171,24 +183,31 @@ class selectFileWindow(Tk):
         self.downloadFileFrame.grid(row=0, column=1, padx=5, pady=5)
         self.downloadFileLabel = Label(self.downloadFileFrame, text="Download a link (yt-dlp)")
         self.downloadFileLabel.grid(row=0, column=0)
-        downloadUrl = StringVar()
-        self.downloadEntry = Entry(self.downloadFileFrame, textvariable=downloadUrl)
+        self.downloadUrl = StringVar()
+        self.downloadEntry = Entry(self.downloadFileFrame, textvariable=self.downloadUrl)
         self.downloadEntry.grid(row=1, column=0)
+        self.downloadStatusLabel = Label(self.downloadFileFrame)
+        self.browseFileButton.grid(row=2, column=0)
+        self.browseFileButton = Button(self.downloadFileFrame, text="Download", command=self.downloadFromUrl)
+        self.browseFileButton.grid(row=3, column=0)
 
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
                                           filetypes = (("Video",["*.webm*","*.mp4*","*.mov*"]), ("all files", "*.*")))
         self.after(1, self.checkFile)
 
-if __name__ == "__main__":
+    def downloadFromUrl(self):
+        pass
 
+
+if __name__ == "__main__":
     if len(sys.argv) >= 2:
         file = sys.argv[1]
     else:
-        file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
         selectFile = selectFileWindow()
         selectFile.mainloop()
-        print(selectFile.getFile())
+        file = selectFile.getFile()
+        #file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
@@ -203,7 +222,7 @@ if __name__ == "__main__":
     root.dnd_bind('<<Drop>>', lambda a:print(a.data))
     root.mainloop()
     '''
-
+    print(targetAudioBitrate)
     root = Tk()
     root.title("Video Bottler")
     snapToAudio = IntVar()
@@ -211,18 +230,20 @@ if __name__ == "__main__":
     snapToAudioValuesBox.pack(anchor=W)
     videoaudioBitrateSlider = bitrateSlider(root)
     videoaudioBitrateSlider.pack(anchor=W)
-    videoaudioBitrateSlider.setDefaults(targetVideoBitrate, targetAudioBitrate)
     testTest = Label(root, text='0')
     testTest.pack(anchor=W)
-    sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults(targetVideoBitrate, targetAudioBitrate))
+    sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults())
     sliderResetDefaultsButton.pack(anchor=W)
+    statusLabel = Label(root, text="")
+    statusLabel.pack(anchor=W)
     root.mainloop()
 
     videoEncoder = "libvpx-vp9"
     audioCodec = "libopus"
     fileEnding = "webm"
 
-    alteredAudioBitrate, alteredVideoBitrate = videoaudioBitrateSlider.getBitrate()
+    alteredAudioBitrate, alteredVideoBitrate = valueTings.getAlteredBitrates()
+    videoX, videoY, bitDiff = valueTings.setAlteredVideoSize()
 
     videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{alteredVideoBitrate}k",
                                 "-c:v",  videoEncoder,  "-maxrate", f"{(alteredVideoBitrate/100)*80}k", 
