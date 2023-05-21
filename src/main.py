@@ -130,11 +130,12 @@ class encodeAndValue:
         while True:
             if process.poll() is not None:
                 break
-            self.progresText = process.stdout.readlines()
-            if self.progresText is None:
+            progressText = process.stdout.readline()
+            if progressText is None:
                 break
-            if self.progresText.decode("utf-8").strartswith("frame="):
-                self.queue[0] = int(self.progresText.partition('=')[-1])
+            progressText = progressText.decode("utf-8")
+            if progressText.startswith("frame="):
+                self.queue[0] = int(progressText.partition('=')[-1])
 
     def encode(self):
         self.videoEncoder = "libvpx-vp9"
@@ -144,33 +145,42 @@ class encodeAndValue:
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
         self.queue = [0]
-        self.videoPass1 = subprocess.Popen(shlex.join(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                    "-threads", "0", "-row-mt", "1", 
-                                    "-pass", "1", "-an", "-f", "null", "NUL"]), stdout=subprocess.PIPE)
+                                    "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
+                                    "-pass", "1", "-an", "-f", "null", "NUL"], 
+                                    stdout=subprocess.PIPE,
+                                    stderr = subprocess.STDOUT)
+        self.encodeHandler(self.videoPass1)
 
-        self.videoPass2 = subprocess.run(shlex.join(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
-                                    "-pass", "2", "-c:a", self.audioCodec, "-frame_duration", "20",
-                                    "-b:a", f"{self.alteredAudioBitrate}k",
-                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"]), stdout=subprocess.PIPE)
+                                    "-c:a", self.audioCodec, "-frame_duration", "20",
+                                    "-b:a", f"{self.alteredAudioBitrate}k", "-progress", "pipe:1",
+                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"], 
+                                    stdout=subprocess.PIPE,
+                                    stderr = subprocess.STDOUT)
+        self.encodeHandler(self.videoPass2)
 
-        self.encodePass1ProcessReader = Thread(target=self.encodeProcessReader, args=(self.videoPass1))
-        self.encodePass1ProcessReader.start()
+    def encodeHandler(self, process):
+        self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
+        self.encodePassProcessReader.start()
         while True:
-            if self.videoPass1.poll() is not None:
+            if process.poll() is not None:
                 break
-            time.sleep(1)
-            print(self.queue[0])
+            print((self.queue[0]/self.setNumberOfFrames())*100)
 
+        process.stdout.close()
+        self.encodePassProcessReader.join()
+        process.wait()
 
 class ytdlpDownloader:
     def __init__(self, url, folder):
