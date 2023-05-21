@@ -57,13 +57,12 @@ class encodeAndValue:
         else:
             with tempFileName() as self.tempFilename:
                 #  copy audio stream with same conatiner into temp folder
-                self.tempFile = os.path.join(self.tempFilename, self.file)
-                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile], 
-                                                    stdout=subprocess.PIPE, 
-                                                    stderr=subprocess.PIPE)
-                self.audioFileSize = os.path.getsize(self.tempFile)/1024
-                print(self.audioFileSize)
-                self.audioBitrate = float(self.audioFileSize/self.audioTime)
+                self.tempFile = os.path.join(self.tempFilename, os.path.basename(self.file))
+                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile],
+                                                    stdout = subprocess.PIPE,
+                                                    stderr = subprocess.STDOUT)
+                self.audioFileSize = os.path.getsize(self.tempFile)*8 #bytes to bits
+                self.audioBitrate = float(self.audioFileSize/self.audioTime)/1000 # bits to kilobits (a second)
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
     
@@ -101,7 +100,7 @@ class encodeAndValue:
         #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
         return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
 
-    def setAlteredAudioVideoBitrat(self, precentage) -> float:
+    def setAlteredAudioVideoBitrate(self, precentage) -> float:
         self.audioUsagePrecentage = precentage
         self.alteredAudioBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)*precentage
         self.alteredVideoBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate)
@@ -126,6 +125,22 @@ class encodeAndValue:
     def getAlteredBitrates(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
+    def getEncodeStatus(self) -> float:
+        return(self.encodeStage, self.encodePecent)
+
+    def encodeHandler(self, process):
+        self.queue = [0]
+        self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
+        self.encodePassProcessReader.start()
+        while True:
+            if process.poll() is not None:
+                break
+            self.encodePecent = (self.queue[0]/self.setNumberOfFrames())*100
+
+        process.stdout.close()
+        self.encodePassProcessReader.join()
+        process.wait()
+
     def encodeProcessReader(self, process):
         while True:
             if process.poll() is not None:
@@ -138,13 +153,14 @@ class encodeAndValue:
                 self.queue[0] = int(progressText.partition('=')[-1])
 
     def encode(self):
+        self.encodeStage = 0
         self.videoEncoder = "libvpx-vp9"
         self.audioCodec = "libopus"
         self.fileEnding = "webm"
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
-        self.queue = [0]
+        self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
@@ -156,6 +172,7 @@ class encodeAndValue:
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass1)
 
+        self.encodeStage = 2
         self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
@@ -169,18 +186,8 @@ class encodeAndValue:
                                     stdout=subprocess.PIPE,
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
+        self.encodeStage = 3
 
-    def encodeHandler(self, process):
-        self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
-        self.encodePassProcessReader.start()
-        while True:
-            if process.poll() is not None:
-                break
-            print((self.queue[0]/self.setNumberOfFrames())*100)
-
-        process.stdout.close()
-        self.encodePassProcessReader.join()
-        process.wait()
 
 class ytdlpDownloader:
     def __init__(self, url, folder):
@@ -249,7 +256,7 @@ class bitrateSlider(Frame):
         testTest["text"] = str(bitrateRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrat(self.bitrateRatioSlider.get())
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
         self.audioBitrateLabel["text"] = str(round(self.alteredAudioBitrate,3))
         self.videoBitrateLabel["text"] = str(round(self.alteredVideoBitrate,3))
 
@@ -264,7 +271,7 @@ class bitrateSlider(Frame):
         self.snapToCommonAudio = state
 
 
-# drag and drop exists in here for now, should revisit later
+# drag and drop exists in here for now, should revisit later and cleaned up
 class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
         TkinterDnD.Tk.__init__(self, *args, **kwargs)
@@ -323,6 +330,9 @@ class selectFileWindow(TkinterDnD.Tk):
             self.file = ytdlp.download()
             self.checkFile()
 
+class encodeStatusWindow(Tk):
+    def __init__(self, *args, **kwargs):
+        Tk.__init__(self, *args, **kwargs)
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2:
