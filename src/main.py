@@ -190,6 +190,9 @@ class encodeAndValue:
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
 
+    def haltEncode(self):
+        pass
+
 
 class ytdlpDownloader:
     def __init__(self, url, folder):
@@ -337,36 +340,51 @@ class selectFileWindow(TkinterDnD.Tk):
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
-        self.encodeStatusMessage = Label(self, text="")
+        self.encodeStatusMessage = Label(self, text="Status: ")
         self.encodeStatusMessage.pack(anchor=W)
         self.encodeProgressBar = ttk.Progressbar(self, orient=HORIZONTAL, length=500, mode='determinate')
         self.encodeProgressBar.pack(anchor=W)
+        self.actionButtonsFrame = Frame(self)
+        self.actionButtonsFrame.pack(anchor=W)
         self.after(1, self.updateProgressBar)
 
     def updateProgressBar(self):  
         self.encodeStage, self.encodePecent = valueTings.getEncodeStatus()
         if self.encodeStage == 1:
+            self.encodeStatusMessage["text"] = "Status: Pass1"
             self.encodeProgressBar["value"] = self.encodePecent/2
         elif self.encodeStage == 2:
+            self.encodeStatusMessage["text"] = "Status: Pass2"
             self.encodeProgressBar["value"] = (self.encodePecent/2)+50
+        elif self.encodeStage == 3:
+            self.encodeStatusMessage["text"] = "Status: Done"
+        self.changeActionButtons()
         self.after(1, self.updateProgressBar)
+
+    def changeActionButtons(self):
+        self.encodeStage, self.encodePecent = valueTings.getEncodeStatus()
+        #if self.encodeStage < 3:
+        #    self.cancelButton = Button(self.actionButtonsFrame, text="Cancel", command=valueTings.haltEncode)
+        #    self.cancelButton.pack(side=RIGHT)
+        return
 
 
 if __name__ == "__main__":
+    # file select
     if len(sys.argv) >= 2:
         file = sys.argv[1]
     else:
         selectFile = selectFileWindow()
         selectFile.mainloop()
         file = selectFile.getFile()
-
+    # initialize first couple set of values
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
     videoBitrate = valueTings.setSourceVideoBitrate()
     targetAudioBitrate = valueTings.setTargetAudioBitrate()
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
     videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
-
+    # main window for setting values and stuff
     root = Tk()
     root.title("Video Bottler")
     snapToAudio = IntVar()
@@ -381,11 +399,10 @@ if __name__ == "__main__":
     statusLabel = Label(root, text="")
     statusLabel.pack(anchor=W)
     root.mainloop()
-
+    # start encodes
     encodeThread = Thread(target=valueTings.encode)
     encodeThread.start()
-    #valueTings.encode()
-
+    # encode status window
     encodeStatus = encodeStatusWindow()
     encodeStatus.after(1, encodeStatus.updateProgressBar)
     encodeStatus.mainloop()
