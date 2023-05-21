@@ -12,6 +12,7 @@ from typing import Optional, Tuple, Union
 import customtkinter
 from contextlib import contextmanager
 from tkinter import *
+import tkinter.ttk as ttk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from threading import Thread
 
@@ -154,6 +155,7 @@ class encodeAndValue:
 
     def encode(self):
         self.encodeStage = 0
+        self.encodePecent = 0
         self.videoEncoder = "libvpx-vp9"
         self.audioCodec = "libopus"
         self.fileEnding = "webm"
@@ -250,6 +252,7 @@ class bitrateSlider(Frame):
         self.setDefaults()
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
+        # no it does not snap properly and gives wack numbers
         if self.snapToCommonAudio == True:
             self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
             self.bitrateRatioSlider.set(self.snapedRatio)
@@ -330,9 +333,24 @@ class selectFileWindow(TkinterDnD.Tk):
             self.file = ytdlp.download()
             self.checkFile()
 
+
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
+        self.encodeStatusMessage = Label(self, text="")
+        self.encodeStatusMessage.pack(anchor=W)
+        self.encodeProgressBar = ttk.Progressbar(self, orient=HORIZONTAL, length=500, mode='determinate')
+        self.encodeProgressBar.pack(anchor=W)
+        self.after(1, self.updateProgressBar)
+
+    def updateProgressBar(self):  
+        self.encodeStage, self.encodePecent = valueTings.getEncodeStatus()
+        if self.encodeStage == 1:
+            self.encodeProgressBar["value"] = self.encodePecent/2
+        elif self.encodeStage == 2:
+            self.encodeProgressBar["value"] = (self.encodePecent/2)+50
+        self.after(1, self.updateProgressBar)
+
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2:
@@ -349,13 +367,6 @@ if __name__ == "__main__":
     targetVideoBitrate = valueTings.setTargetVideoBitrate()
     videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
 
-    '''
-    root = TkinterDnD.Tk()
-    root.drop_target_register(DND_FILES)
-    root.dnd_bind('<<Drop>>', lambda a:print(a.data))
-    root.mainloop()
-    '''
-    print(targetAudioBitrate)
     root = Tk()
     root.title("Video Bottler")
     snapToAudio = IntVar()
@@ -371,4 +382,10 @@ if __name__ == "__main__":
     statusLabel.pack(anchor=W)
     root.mainloop()
 
-    valueTings.encode()
+    encodeThread = Thread(target=valueTings.encode)
+    encodeThread.start()
+    #valueTings.encode()
+
+    encodeStatus = encodeStatusWindow()
+    encodeStatus.after(1, encodeStatus.updateProgressBar)
+    encodeStatus.mainloop()
