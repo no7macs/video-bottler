@@ -59,7 +59,8 @@ class encodeAndValue:
                 self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile], 
                                                     stdout=subprocess.PIPE, 
                                                     stderr=subprocess.PIPE)
-                self.audioFileSize = os.path.getsize(self.tempFile)*8/1024
+                self.audioFileSize = os.path.getsize(self.tempFile)/1024
+                print(self.audioFileSize)
                 self.audioBitrate = float(self.audioFileSize/self.audioTime)
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
@@ -115,6 +116,34 @@ class encodeAndValue:
     def getAlteredBitrates(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
+    def encode(self):
+        self.videoEncoder = "libvpx-vp9"
+        self.audioCodec = "libopus"
+        self.fileEnding = "webm"
+
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
+        self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
+
+        self.videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+                                    "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
+                                    "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}",
+                                    "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
+                                    "-threads", "0", "-row-mt", "1",
+                                    "-pass", "1", "-an", "-f", "null", "NUL"])
+
+        self.videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+                                    "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
+                                    "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}",
+                                    "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
+                                    "-threads", "0", "-row-mt", "1",
+                                    "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
+                                    "-pass", "2", "-c:a", self.audioCodec, "-frame_duration", "20",
+                                    "-b:a", f"{self.alteredAudioBitrate}k",
+                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"])
+
+
 class ytdlpDownloader:
     def __init__(self, url, folder):
         self.tempFolder = folder
@@ -158,6 +187,7 @@ class ytdlpDownloader:
             ydl.download(self.url)
         return(os.path.join(self.tempFolder, os.listdir(self.tempFolder)[0]))
 
+
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
@@ -194,6 +224,7 @@ class bitrateSlider(Frame):
 
     def snapToCommonAudioValues(self, state:bool) -> None:
         self.snapToCommonAudio = state
+
 
 class selectFileWindow(Tk):
     def __init__(self, *args, **kwargs):
@@ -254,7 +285,6 @@ if __name__ == "__main__":
         selectFile = selectFileWindow()
         selectFile.mainloop()
         file = selectFile.getFile()
-        #file = "A:/Desktop/Vessel - Red Sex (Official Video) [8iPoS9zqmoQ].webm"
 
     valueTings = encodeAndValue(file)
     audioBitrate = valueTings.setSourceAudioBitrate()
@@ -285,28 +315,4 @@ if __name__ == "__main__":
     statusLabel.pack(anchor=W)
     root.mainloop()
 
-    videoEncoder = "libvpx-vp9"
-    audioCodec = "libopus"
-    fileEnding = "webm"
-
-    alteredAudioBitrate, alteredVideoBitrate = valueTings.getAlteredBitrates()
-    videoX, videoY, bitDiff = valueTings.setAlteredVideoSize()
-
-    videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{alteredVideoBitrate}k",
-                                "-c:v",  videoEncoder,  "-maxrate", f"{(alteredVideoBitrate/100)*80}k", 
-                                "-bufsize", f"{alteredVideoBitrate*2}k", "-minrate", "0k",
-                                "-vf", f"scale={videoX}:{videoY}",
-                                "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                "-threads", "0", "-row-mt", "1",
-                                "-pass", "1", "-an", "-f", "null", "NUL"])
-
-    videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{alteredVideoBitrate}k",
-                                "-c:v", videoEncoder, "-maxrate", f"{(alteredVideoBitrate/100)*80}k",
-                                "-bufsize", f"{alteredVideoBitrate*2}k", "-minrate", "0k",
-                                "-vf", f"scale={videoX}:{videoY}",
-                                "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                "-threads", "0", "-row-mt", "1",
-                                "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={alteredVideoBitrate}",
-                                "-pass", "2", "-c:a", audioCodec, "-frame_duration", "20",
-                                "-b:a", f"{alteredAudioBitrate}k",
-                                f"{os.path.splitext(file)[0]}1.{fileEnding}"])
+    valueTings.encode()
