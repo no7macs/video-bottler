@@ -12,6 +12,7 @@ import customtkinter
 from contextlib import contextmanager
 from tkinter import *
 from tkinterdnd2 import DND_FILES, TkinterDnD
+from threading import Thread
 
 @contextmanager
 def tempFileName() -> str:
@@ -110,11 +111,29 @@ class encodeAndValue:
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
 
+    def setNumberOfFrames(self):
+        self.frameCount = json.loads(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
+                                        "-show_entries", "stream=nb_read_packets", 
+                                        "-of", "csv=p=0", "-of", "json", self.file], 
+                                        stdout=subprocess.PIPE,
+                                        stderr = subprocess.STDOUT).stdout)
+        return(self.frameCount)
+
     def getTargetBitrates(self) -> float:
         return(self.targetAudioBitrate, self.targetVideoBitrate)
     
     def getAlteredBitrates(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+
+    def encodeProcessReader(self, process):
+        while True:
+            if process.poll() is not None:
+                break
+            self.progresText = process.stdout.readlines()
+            if self.progresText is None:
+                break
+            if self.progresText.decode("utf-8").strartswith("frame="):
+                self.queue[0] = int(self.progresText.partition('=')[-1])
 
     def encode(self):
         self.videoEncoder = "libvpx-vp9"
@@ -124,15 +143,18 @@ class encodeAndValue:
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
-        self.videoPass1 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.queue = [0]
+        print("--frameCount--"+str(self.setNumberOfFrames))
+        time.sleep(30)
+        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
-                                    "-pass", "1", "-an", "-f", "null", "NUL"])
+                                    "-pass", "1", "-progress", "pipe:1", "-an", "-f", "null", "NUL"], stdout=subprocess.PIPE).stdout
 
-        self.videoPass2 = subprocess.run(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
@@ -143,7 +165,13 @@ class encodeAndValue:
                                     "-b:a", f"{self.alteredAudioBitrate}k",
                                     f"{os.path.splitext(file)[0]}1.{self.fileEnding}"])
 
-
+        self.encodePass1ProcessReader = Thread(target=self.encodeProcessReader, args=(self.videoPass1))
+        self.encodePass1ProcessReader.start()
+        while True:
+            if self.videoPass1.poll() is not None:
+                break
+            time.sleep(1)
+            print(self.queue[0])
 class ytdlpDownloader:
     def __init__(self, url, folder):
         self.tempFolder = folder
@@ -226,14 +254,16 @@ class bitrateSlider(Frame):
         self.snapToCommonAudio = state
 
 
-class selectFileWindow(Tk):
+class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
-        Tk.__init__(self, *args, **kwargs)
+        TkinterDnD.Tk.__init__(self, *args, **kwargs)
         #self.title("Video Bottler")
         #customtkinter.set_appearance_mode("system")
         self.file = ""
         #customtkinter.set_widget_scaling(1000)
         #customtkinter.set_window_scaling(1000)
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind('<<Drop>>', lambda a:self.setFile(a.data))
         self.fileSelectFrame()
         self.fileDownloadFrame()
 
@@ -241,6 +271,11 @@ class selectFileWindow(Tk):
         print(self.file)
         if not self.file == "" and os.path.exists(self.file):
             self.destroy()
+
+    def setFile(self, file):
+        print(file)
+        self.file=file.replace("{","").replace("}","")
+        self.checkFile()
 
     def getFile(self) -> str:
         return(self.file)
