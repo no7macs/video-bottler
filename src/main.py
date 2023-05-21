@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import yt_dlp
 import tkinter
+import shlex
 from typing import Optional, Tuple, Union
 import customtkinter
 from contextlib import contextmanager
@@ -111,12 +112,12 @@ class encodeAndValue:
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
 
-    def setNumberOfFrames(self):
-        self.frameCount = json.loads(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
-                                        "-show_entries", "stream=nb_read_packets", 
-                                        "-of", "csv=p=0", "-of", "json", self.file], 
-                                        stdout=subprocess.PIPE,
-                                        stderr = subprocess.STDOUT).stdout)
+    def setNumberOfFrames(self) -> float:
+        self.frameCount = float(json.loads(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
+                                                            "-show_entries", "stream=nb_read_packets", 
+                                                            "-of", "csv=p=0", "-of", "json", self.file], 
+                                                            stdout=subprocess.PIPE,
+                                                            stderr = subprocess.STDOUT).stdout)['streams'][0]['nb_read_packets'])
         return(self.frameCount)
 
     def getTargetBitrates(self) -> float:
@@ -139,22 +140,19 @@ class encodeAndValue:
         self.videoEncoder = "libvpx-vp9"
         self.audioCodec = "libopus"
         self.fileEnding = "webm"
-
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
         self.queue = [0]
-        print("--frameCount--"+str(self.setNumberOfFrames))
-        time.sleep(30)
-        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass1 = subprocess.Popen(shlex.join(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                    "-threads", "0", "-row-mt", "1",
-                                    "-pass", "1", "-progress", "pipe:1", "-an", "-f", "null", "NUL"], stdout=subprocess.PIPE).stdout
+                                    "-threads", "0", "-row-mt", "1", 
+                                    "-pass", "1", "-an", "-f", "null", "NUL"]), stdout=subprocess.PIPE)
 
-        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass2 = subprocess.run(shlex.join(["ffmpeg", "-y", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
@@ -163,7 +161,7 @@ class encodeAndValue:
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
                                     "-pass", "2", "-c:a", self.audioCodec, "-frame_duration", "20",
                                     "-b:a", f"{self.alteredAudioBitrate}k",
-                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"])
+                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"]), stdout=subprocess.PIPE)
 
         self.encodePass1ProcessReader = Thread(target=self.encodeProcessReader, args=(self.videoPass1))
         self.encodePass1ProcessReader.start()
@@ -172,6 +170,8 @@ class encodeAndValue:
                 break
             time.sleep(1)
             print(self.queue[0])
+
+
 class ytdlpDownloader:
     def __init__(self, url, folder):
         self.tempFolder = folder
@@ -254,6 +254,7 @@ class bitrateSlider(Frame):
         self.snapToCommonAudio = state
 
 
+# drag and drop exists in here for now, should revisit later
 class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
         TkinterDnD.Tk.__init__(self, *args, **kwargs)
