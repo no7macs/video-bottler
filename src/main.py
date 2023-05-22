@@ -7,8 +7,8 @@ import shutil
 import tempfile
 import yt_dlp
 import tkinter
-import shlex
 import tkinter.ttk as ttk
+from tkinter.filedialog import *
 from typing import Optional, Tuple, Union
 from contextlib import contextmanager
 from tkinter import *
@@ -162,6 +162,8 @@ class encodeAndValue:
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
+        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(file), initialfile=f"{os.path.splitext(file)[0]}1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        print(newfile)
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
@@ -184,7 +186,7 @@ class encodeAndValue:
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
                                     "-c:a", self.audioCodec, "-frame_duration", "20",
                                     "-b:a", f"{self.alteredAudioBitrate}k", "-progress", "pipe:1",
-                                    f"{os.path.splitext(file)[0]}1.{self.fileEnding}"], 
+                                    f"{newfile}"], 
                                     stdout=subprocess.PIPE,
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
