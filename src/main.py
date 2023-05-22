@@ -8,11 +8,10 @@ import tempfile
 import yt_dlp
 import tkinter
 import shlex
+import tkinter.ttk as ttk
 from typing import Optional, Tuple, Union
-import customtkinter
 from contextlib import contextmanager
 from tkinter import *
-import tkinter.ttk as ttk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from threading import Thread
 
@@ -20,7 +19,7 @@ from threading import Thread
 def tempFileName() -> str:
     dir = tempfile.mkdtemp()
     yield dir
-    shutil.rmtree(dir)  
+    shutil.rmtree(dir)
 
 
 class encodeAndValue:
@@ -56,14 +55,15 @@ class encodeAndValue:
         elif "BitRate" in self.mediaInfoOut["media"]["track"][2]:
             self.audioBitrate = float(self.mediaInfoOut["media"]["track"][2]["BitRate"])/1000
         else:
-            with tempFileName() as self.tempFilename:
-                #  copy audio stream with same conatiner into temp folder
-                self.tempFile = os.path.join(self.tempFilename, os.path.basename(self.file))
-                self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile],
-                                                    stdout = subprocess.PIPE,
-                                                    stderr = subprocess.STDOUT)
-                self.audioFileSize = os.path.getsize(self.tempFile)*8 #bytes to bits
-                self.audioBitrate = float(self.audioFileSize/self.audioTime)/1000 # bits to kilobits (a second)
+            self.tempFoldername = tempFoldername
+            #  copy audio stream with same conatiner into temp folder
+            self.tempFile = os.path.join(self.tempFoldername, ("audio"+os.path.basename(self.file)))
+            self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile],
+                                                stdout = subprocess.PIPE,
+                                                stderr = subprocess.STDOUT)
+            self.audioFileSize = os.path.getsize(self.tempFile)*8 #bytes to bits
+            self.audioBitrate = float(self.audioFileSize/self.audioTime)/1000 # bits to kilobits (a second)
+            os.remove(self.tempFile)
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
     
@@ -331,10 +331,10 @@ class selectFileWindow(TkinterDnD.Tk):
         self.after(1, self.checkFile)
 
     def downloadFromUrl(self):
-        with tempFileName() as self.tempFilename:
-            ytdlp = ytdlpDownloader(self.downloadEntry.get(), self.tempFilename)
-            self.file = ytdlp.download()
-            self.checkFile()
+        self.tempFoldername = tempFoldername
+        ytdlp = ytdlpDownloader(self.downloadEntry.get(), self.tempFoldername)
+        self.file = ytdlp.download()
+        self.checkFile()
 
 
 class encodeStatusWindow(Tk):
@@ -370,39 +370,40 @@ class encodeStatusWindow(Tk):
 
 
 if __name__ == "__main__":
-    # file select
-    if len(sys.argv) >= 2:
-        file = sys.argv[1]
-    else:
-        selectFile = selectFileWindow()
-        selectFile.mainloop()
-        file = selectFile.getFile()
-    # initialize first couple set of values
-    valueTings = encodeAndValue(file)
-    audioBitrate = valueTings.setSourceAudioBitrate()
-    videoBitrate = valueTings.setSourceVideoBitrate()
-    targetAudioBitrate = valueTings.setTargetAudioBitrate()
-    targetVideoBitrate = valueTings.setTargetVideoBitrate()
-    videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
-    # main window for setting values and stuff
-    root = Tk()
-    root.title("Video Bottler")
-    snapToAudio = IntVar()
-    snapToAudioValuesBox = Checkbutton(root, text="Snap to common audio bitrates", variable=snapToAudio, onvalue=1, offvalue=0, command=lambda:videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(snapToAudio.get())))
-    snapToAudioValuesBox.pack(anchor=W)
-    videoaudioBitrateSlider = bitrateSlider(root)
-    videoaudioBitrateSlider.pack(anchor=W)
-    testTest = Label(root, text='0')
-    testTest.pack(anchor=W)
-    sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults())
-    sliderResetDefaultsButton.pack(anchor=W)
-    statusLabel = Label(root, text="")
-    statusLabel.pack(anchor=W)
-    root.mainloop()
-    # start encodes
-    encodeThread = Thread(target=valueTings.encode)
-    encodeThread.start()
-    # encode status window
-    encodeStatus = encodeStatusWindow()
-    encodeStatus.after(1, encodeStatus.updateProgressBar)
-    encodeStatus.mainloop()
+    with tempFileName() as tempFoldername:
+        # file select
+        if len(sys.argv) >= 2:
+            file = sys.argv[1]
+        else:
+            selectFile = selectFileWindow()
+            selectFile.mainloop()
+            file = selectFile.getFile()
+        # initialize first couple set of values
+        valueTings = encodeAndValue(file)
+        audioBitrate = valueTings.setSourceAudioBitrate()
+        videoBitrate = valueTings.setSourceVideoBitrate()
+        targetAudioBitrate = valueTings.setTargetAudioBitrate()
+        targetVideoBitrate = valueTings.setTargetVideoBitrate()
+        videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
+        # main window for setting values and stuff
+        root = Tk()
+        root.title("Video Bottler")
+        snapToAudio = IntVar()
+        snapToAudioValuesBox = Checkbutton(root, text="Snap to common audio bitrates", variable=snapToAudio, onvalue=1, offvalue=0, command=lambda:videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(snapToAudio.get())))
+        snapToAudioValuesBox.pack(anchor=W)
+        videoaudioBitrateSlider = bitrateSlider(root)
+        videoaudioBitrateSlider.pack(anchor=W)
+        testTest = Label(root, text='0')
+        testTest.pack(anchor=W)
+        sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults())
+        sliderResetDefaultsButton.pack(anchor=W)
+        statusLabel = Label(root, text="")
+        statusLabel.pack(anchor=W)
+        root.mainloop()
+        # start encodes
+        encodeThread = Thread(target=valueTings.encode)
+        encodeThread.start()
+        # encode status window
+        encodeStatus = encodeStatusWindow()
+        encodeStatus.after(1, encodeStatus.updateProgressBar)
+        encodeStatus.mainloop()
