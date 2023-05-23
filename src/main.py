@@ -34,7 +34,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout))  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
-        self.upperVideoSize = (5.8*8*1024*1024) #megabits
+        self.upperVideoSize = (5.8*8*1000*1000) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -98,7 +98,7 @@ class encodeAndValue:
     def setTargetVideoSize(self) -> float:
         self.targetVideoWidth = self.videoWidth * self.bitrateDifference
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
-        #videoSize[0] = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < videoSize[0] else videoSize[0]
+        #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
 
     def setAlteredAudioVideoBitrate(self, precentage) -> float:
@@ -109,6 +109,7 @@ class encodeAndValue:
 
     def setAlteredVideoSize(self) -> float:
         self.alteredVideoWidth = self.alteredVideoBitrate*(1-self.audioUsagePrecentage)
+        #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
 
@@ -163,11 +164,10 @@ class encodeAndValue:
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
         newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(file), initialfile=f"{os.path.splitext(file)[0]}1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
-        print(newfile)
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
-                                    "-c:v",  self.videoEncoder,  "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k", 
-                                    "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
+                                    "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
+                                    "-bufsize", f"{(self.alteredVideoBitrate*0.8)*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
@@ -178,8 +178,8 @@ class encodeAndValue:
 
         self.encodeStage = 2
         self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
-                                    "-c:v", self.videoEncoder, "-maxrate", f"{(self.alteredVideoBitrate/100)*80}k",
-                                    "-bufsize", f"{self.alteredVideoBitrate*2}k", "-minrate", "0k",
+                                    "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
+                                    "-bufsize", f"{(self.alteredVideoBitrate*0.8)*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
