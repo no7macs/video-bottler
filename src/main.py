@@ -34,7 +34,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout))  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
-        self.upperVideoSize = (5.8*8*1000*1000) #megabits
+        self.upperVideoSize = (5.8*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -103,12 +103,16 @@ class encodeAndValue:
 
     def setAlteredAudioVideoBitrate(self, precentage) -> float:
         self.audioUsagePrecentage = precentage
-        self.alteredAudioBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)*precentage
-        self.alteredVideoBitrate = (self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate)
+        #whole numbers (too lazy to do math properly
+        self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*precentage)
+        self.alteredVideoBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate))
+        #print("--alteredAudioBitrate--"+str(self.alteredAudioBitrate))
+        #print("--alteredVideoBitrate--"+str(self.alteredVideoBitrate))
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def setAlteredVideoSize(self) -> float:
-        self.alteredVideoWidth = self.alteredVideoBitrate*(1-self.audioUsagePrecentage)
+        print(self.targetVideoBitrate/self.alteredAudioBitrate)
+        self.alteredVideoWidth = self.targetVideoWidth*(self.targetVideoBitrate/self.alteredVideoBitrate)
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
@@ -148,6 +152,7 @@ class encodeAndValue:
             if process.poll() is not None:
                 break
             progressText = process.stdout.readline()
+            print(progressText)
             if progressText is None:
                 break
             progressText = progressText.decode("utf-8")
@@ -251,7 +256,8 @@ class bitrateSlider(Frame):
         self.audioBitrateLabel.pack(side=LEFT)
         self.videoBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
         self.videoBitrateLabel.pack(side=RIGHT)
-        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.001, command=self.bitrateRatioSliderUpdate)
+        #15 decimal places because i'm to lazy to do math properly
+        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.000000000000001, command=self.bitrateRatioSliderUpdate)
         self.bitrateRatioSlider.pack(anchor = W)
         self.snapToCommonAudio = False
         self.setDefaults()
@@ -265,13 +271,13 @@ class bitrateSlider(Frame):
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
-        self.audioBitrateLabel["text"] = str(round(self.alteredAudioBitrate,3))
-        self.videoBitrateLabel["text"] = str(round(self.alteredVideoBitrate,3))
+        self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
+        self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
 
     def setDefaults(self) -> None:
         self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetBitrates()
-        self.audioBitrateLabel["text"] = str(round(self.targetAudioBitrate, 3))
-        self.videoBitrateLabel["text"] = str(round(self.targetVideoBitrate, 3))
+        self.audioBitrateLabel["text"] = str(int(self.targetAudioBitrate))+"kb/s"
+        self.videoBitrateLabel["text"] = str(int(self.targetVideoBitrate))+"kb/s"
         self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
         self.bitrateRatioSlider.set(self.audioUsagePrecentage)
 
