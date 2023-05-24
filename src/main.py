@@ -34,7 +34,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout))  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
-        self.upperVideoSize = (5.8*8*1000*1000) #megabits
+        self.upperVideoSize = (5.8*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -79,11 +79,11 @@ class encodeAndValue:
     #this one NEEDS to be changed and made to actually do something (its very cringe)
     def setTargetAudioBitrate(self) -> float:
         self.targetAudioBitrate = self.audioBitrate
-        #if (self.targetAudioBitrate*self.audioTime)*1024 > self.upperVideoSize:
-        #    for a,b in enumerate(self.commonAudioValues):
-        #        if b > self.targetAudioBitrate:
-        #            self.targetAudioBitrate = self.commonAudioValues[a-1]
-        #            break
+        if (self.targetAudioBitrate*self.audioTime)*1024 > self.upperVideoSize:
+            for a,b in enumerate(self.commonAudioValues):
+                if b > self.targetAudioBitrate:
+                    self.targetAudioBitrate = self.commonAudioValues[a-1]
+                    break
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
         return(self.targetAudioBitrate)
 
