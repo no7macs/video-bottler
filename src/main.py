@@ -34,7 +34,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout))  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
-        self.upperVideoSize = (5.8*8*1024*1024) #megabits
+        self.upperVideoSize = (5.8*8*1000*1000) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -111,7 +111,6 @@ class encodeAndValue:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def setAlteredVideoSize(self) -> float:
-        print(self.targetVideoBitrate/self.alteredAudioBitrate)
         self.alteredVideoWidth = self.targetVideoWidth*(self.targetVideoBitrate/self.alteredVideoBitrate)
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
@@ -172,7 +171,7 @@ class encodeAndValue:
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
-                                    "-bufsize", f"{(self.alteredVideoBitrate*0.8)*2}k", "-minrate", "0k",
+                                    "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
@@ -184,12 +183,12 @@ class encodeAndValue:
         self.encodeStage = 2
         self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
-                                    "-bufsize", f"{(self.alteredVideoBitrate*0.8)*2}k", "-minrate", "0k",
+                                    "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
-                                    "-c:a", self.audioCodec, "-frame_duration", "20",
+                                    "-c:a", self.audioCodec, "-frame_duration", "20", "-pass", "2",
                                     "-b:a", f"{self.alteredAudioBitrate}k", "-progress", "pipe:1",
                                     f"{newfile}"], 
                                     stdout=subprocess.PIPE,
