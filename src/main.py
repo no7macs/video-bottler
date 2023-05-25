@@ -138,15 +138,16 @@ class encodeAndValue:
         self.haltEncodeFlag = True
 
     def encodeHandler(self, process):
-        if not self.haltEncodeFlag:
+        if self.haltEncodeFlag == False:
             self.queue = [0]
             self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
             self.encodePassProcessReader.start()
-            while process.poll() is None and not self.haltEncodeFlag:
-                self.encodePecent = (self.queue[0]/self.setNumberOfFrames())*100
+            self.totalFrames = self.setNumberOfFrames()
+            while (process.poll() is None) and (self.haltEncodeFlag == False):
+                self.encodePecent = (self.queue[0]/self.totalFrames)*100
             process.stdout.close()
             self.encodePassProcessReader.join()
-            if self.haltEncodeFlag:
+            if self.haltEncodeFlag == False:
                 process.wait()
         process.kill()
 
@@ -372,16 +373,12 @@ class encodeStatusWindow(Tk):
         elif self.encodeStage == 3:
             self.encodeStatusMessage["text"] = "Status: Done"
 
-        print(self.cancelButton.winfo_ismapped())
         if self.encodeStage < 3 and self.cancelButton.winfo_ismapped() == 0:
             self.cancelButton.pack(side=RIGHT)
         elif self.encodeStage == 3:
             self.cancelButton.pack_forget()
         
         self.after(1, self.updateProgressBar)
-
-    def changeActionButtons(self):
-        pass
 
 
 if __name__ == "__main__":
