@@ -132,7 +132,8 @@ class encodeAndValue:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def getEncodeStatus(self) -> float:
-        return(self.encodeStage, self.encodePecent, self.haltEncodeFlag)
+        self.taskStats["encodePrecent"] = self.queue[0]
+        return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
 
     def haltEncode(self):
         self.haltEncodeFlag = True
@@ -144,7 +145,7 @@ class encodeAndValue:
             self.encodePassProcessReader.start()
             self.totalFrames = self.setNumberOfFrames()
             while (process.poll() is None) and (self.haltEncodeFlag == False):
-                self.encodePecent = (self.queue[0]/self.totalFrames)*100
+                self.taskStats["encodePrecent"] = (self.queue[0]/self.totalFrames)*100
             process.stdout.close()
             self.encodePassProcessReader.join()
             if self.haltEncodeFlag == False:
@@ -160,14 +161,28 @@ class encodeAndValue:
             progressText = progressText.decode("utf-8")
             if progressText.startswith("frame="):
                 self.queue[0] = int(progressText.partition('=')[-1])
+            elif progressText.startswith("fps="):
+                self.taskStats["fps"] = float(progressText.partition('=')[-1])
+            elif progressText.startswith("bitrate=") and (not "N/A" in progressText):
+                self.taskStats["bitrate"] = progressText.partition('=')[-1]
+            elif progressText.startswith("total_size=") and (not "N/A" in progressText):
+                self.taskStats["totalSize"] = int(progressText.partition('=')[-1])
+            elif progressText.startswith("out_time_ms="):
+                self.taskStats["outTime"] = int(progressText.partition('=')[-1])
+            elif progressText.startswith("dup_frames="):
+                self.taskStats["dumpedFrames"] = int(progressText.partition('=')[-1])
+            elif progressText.startswith("drop_frames="):
+                self.taskStats["dropedFrames"] = int(progressText.partition('=')[-1])
+            elif progressText.startswith("speed=") and (not "N/A" in progressText):
+                self.taskStats["speed"] = progressText.partition('=')[-1]
 
     def encode(self):
         self.haltEncodeFlag = False
         self.encodeStage = 0
-        self.encodePecent = 0
         self.videoEncoder = "libvpx-vp9"
         self.audioCodec = "libopus"
         self.fileEnding = "webm"
+        self.taskStats = {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
@@ -358,7 +373,7 @@ class encodeStatusWindow(Tk):
         self.after(1, self.updateProgressBar)
 
     def updateProgressBar(self):  
-        self.encodeStage, self.encodePecent, self.haltEncodeFlag = valueTings.getEncodeStatus()
+        self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
         if self.haltEncodeFlag == True: #check if cancel flag has been set
             self.encodeStatusMessage["text"] = "Status: Canceling"
             if self.encodeStage == 3: # if it fully closed out of encoding, setting the status to 3 (final thing it does)
@@ -366,10 +381,10 @@ class encodeStatusWindow(Tk):
                 self.encodeProgressBar["value"] = 100
         elif self.encodeStage == 1:
             self.encodeStatusMessage["text"] = "Status: Pass1"
-            self.encodeProgressBar["value"] = self.encodePecent/2
+            self.encodeProgressBar["value"] = self.taskStatus["encodePrecent"]/2
         elif self.encodeStage == 2:
             self.encodeStatusMessage["text"] = "Status: Pass2"
-            self.encodeProgressBar["value"] = (self.encodePecent/2)+50
+            self.encodeProgressBar["value"] = (self.taskStatus["encodePrecent"]/2)+50
         elif self.encodeStage == 3:
             self.encodeStatusMessage["text"] = "Status: Done"
 
