@@ -76,7 +76,7 @@ class encodeAndValue:
         print("--videoBitrate--"+str(self.videoBitrate))
         return(self.videoBitrate)
 
-    #this one NEEDS to be changed and made to actually do something (its very cringe)
+    #this one NEEDS to be changed (its very cringe)
     def setTargetAudioBitrate(self) -> float:
         self.targetAudioBitrate = self.audioBitrate
         if (self.targetAudioBitrate*self.audioTime)*1024 > self.upperVideoSize:
@@ -112,6 +112,7 @@ class encodeAndValue:
 
     def setAlteredVideoSize(self) -> float:
         self.alteredVideoWidth = self.targetVideoWidth*(self.targetVideoBitrate/self.alteredVideoBitrate)
+        #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
@@ -131,27 +132,28 @@ class encodeAndValue:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def getEncodeStatus(self) -> float:
-        return(self.encodeStage, self.encodePecent)
+        return(self.encodeStage, self.encodePecent, self.haltEncodeFlag)
+
+    def haltEncode(self):
+        self.haltEncodeFlag = True
 
     def encodeHandler(self, process):
-        self.queue = [0]
-        self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
-        self.encodePassProcessReader.start()
-        while True:
-            if process.poll() is not None:
-                break
-            self.encodePecent = (self.queue[0]/self.setNumberOfFrames())*100
-
-        process.stdout.close()
-        self.encodePassProcessReader.join()
-        process.wait()
+        if not self.haltEncodeFlag:
+            self.queue = [0]
+            self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
+            self.encodePassProcessReader.start()
+            while process.poll() is None and not self.haltEncodeFlag:
+                self.encodePecent = (self.queue[0]/self.setNumberOfFrames())*100
+            process.stdout.close()
+            self.encodePassProcessReader.join()
+            if self.haltEncodeFlag:
+                process.wait()
+        process.kill()
 
     def encodeProcessReader(self, process):
-        while True:
-            if process.poll() is not None:
-                break
+        while process.poll() is None and not self.haltEncodeFlag:
             progressText = process.stdout.readline()
-            print(progressText)
+            #print(progressText)
             if progressText is None:
                 break
             progressText = progressText.decode("utf-8")
@@ -159,6 +161,7 @@ class encodeAndValue:
                 self.queue[0] = int(progressText.partition('=')[-1])
 
     def encode(self):
+        self.haltEncodeFlag = False
         self.encodeStage = 0
         self.encodePecent = 0
         self.videoEncoder = "libvpx-vp9"
@@ -195,9 +198,6 @@ class encodeAndValue:
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
-
-    def haltEncode(self):
-        pass
 
 
 class ytdlpDownloader:
@@ -353,11 +353,17 @@ class encodeStatusWindow(Tk):
         self.encodeProgressBar.pack(anchor=W)
         self.actionButtonsFrame = Frame(self)
         self.actionButtonsFrame.pack(anchor=W)
+        self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
         self.after(1, self.updateProgressBar)
 
     def updateProgressBar(self):  
-        self.encodeStage, self.encodePecent = valueTings.getEncodeStatus()
-        if self.encodeStage == 1:
+        self.encodeStage, self.encodePecent, self.haltEncodeFlag = valueTings.getEncodeStatus()
+        if self.haltEncodeFlag == True: #check if cancel flag has been set
+            self.encodeStatusMessage["text"] = "Status: Canceling"
+            if self.encodeStage == 3: # if it fully closed out of encoding, setting the status to 3 (final thing it does)
+                self.encodeStatusMessage["text"] = "Status: Canceled"
+                self.encodeProgressBar["value"] = 100
+        elif self.encodeStage == 1:
             self.encodeStatusMessage["text"] = "Status: Pass1"
             self.encodeProgressBar["value"] = self.encodePecent/2
         elif self.encodeStage == 2:
@@ -365,15 +371,17 @@ class encodeStatusWindow(Tk):
             self.encodeProgressBar["value"] = (self.encodePecent/2)+50
         elif self.encodeStage == 3:
             self.encodeStatusMessage["text"] = "Status: Done"
-        self.changeActionButtons()
+
+        print(self.cancelButton.winfo_ismapped())
+        if self.encodeStage < 3 and self.cancelButton.winfo_ismapped() == 0:
+            self.cancelButton.pack(side=RIGHT)
+        elif self.encodeStage == 3:
+            self.cancelButton.pack_forget()
+        
         self.after(1, self.updateProgressBar)
 
     def changeActionButtons(self):
-        self.encodeStage, self.encodePecent = valueTings.getEncodeStatus()
-        #if self.encodeStage < 3:
-        #    self.cancelButton = Button(self.actionButtonsFrame, text="Cancel", command=valueTings.haltEncode)
-        #    self.cancelButton.pack(side=RIGHT)
-        return
+        pass
 
 
 if __name__ == "__main__":
