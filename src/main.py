@@ -132,7 +132,6 @@ class encodeAndValue:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def getEncodeStatus(self) -> float:
-        self.taskStats["encodePrecent"] = self.queue[0]
         return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
 
     def haltEncode(self):
@@ -363,6 +362,24 @@ class selectFileWindow(TkinterDnD.Tk):
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
+        self.encodeStatFrame = Frame(self)
+        self.encodeStatFrame.pack(anchor=W)
+
+        self.fpsLabel = Label(self.encodeStatFrame, text="")
+        self.fpsLabel.pack(anchor=W)
+        self.bitrateLabel = Label(self.encodeStatFrame, text="")
+        self.bitrateLabel.pack(anchor=W)
+        self.totalSizeLabel = Label(self.encodeStatFrame, text="")
+        self.totalSizeLabel.pack(anchor=W)
+        self.outTimeLabel = Label(self.encodeStatFrame, text="")
+        self.outTimeLabel.pack(anchor=W)
+        self.dumpedFramesLabel = Label(self.encodeStatFrame, text="")
+        self.dumpedFramesLabel.pack(anchor=W)
+        self.dropedFramesLabel = Label(self.encodeStatFrame, text="")
+        self.dropedFramesLabel.pack(anchor=W)
+        self.speedLabel = Label(self.encodeStatFrame, text="")
+        self.speedLabel.pack(anchor=W)
+
         self.encodeStatusMessage = Label(self, text="Status: ")
         self.encodeStatusMessage.pack(anchor=W)
         self.encodeProgressBar = ttk.Progressbar(self, orient=HORIZONTAL, length=500, mode='determinate')
@@ -372,8 +389,18 @@ class encodeStatusWindow(Tk):
         self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
         self.after(1, self.updateProgressBar)
 
-    def updateProgressBar(self):  
+    def updateProgressBar(self):
+        # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
+
+        self.fpsLabel["text"] = "fps: "+self.taskStatus["fps"]
+        self.bitrateLabel["text"] = "bitrate:"+self.taskStatus["bitrate"]
+        self.totalSizeLabel["text"] = self.taskStatus["totalSize"]
+        self.outTimeLabel["text"] = self.taskStatus["outTime"]
+        self.dumpedFramesLabel["text"] = self.taskStatus["dumpedFrames"]
+        self.dropedFramesLabel["text"] = self.taskStatus["dropedFrames"]
+        self.speedLabel["text"] = self.taskStatus["speed"]
+
         if self.haltEncodeFlag == True: #check if cancel flag has been set
             self.encodeStatusMessage["text"] = "Status: Canceling"
             if self.encodeStage == 3: # if it fully closed out of encoding, setting the status to 3 (final thing it does)
@@ -393,7 +420,7 @@ class encodeStatusWindow(Tk):
         elif self.encodeStage == 3:
             self.cancelButton.pack_forget()
         
-        self.after(1, self.updateProgressBar)
+        self.after(1000, self.updateProgressBar)
 
 
 if __name__ == "__main__":
