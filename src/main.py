@@ -26,7 +26,7 @@ class encodeAndValue:
     def __init__(self) -> None:
         self.file = ""
 
-    # this exists since everything needs the file but the file is set after the class is envoked in the select file window making it so everything has to run afterwards
+    # this exists since everything needs the file but the file is set after the class is invoked in the select file window making it so everything has to run afterwards
     # for the love of god please find a better solution
     def setDefaults(self) -> None:
         self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", 
@@ -144,6 +144,10 @@ class encodeAndValue:
     def getEncodeStatus(self) -> float:
         return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
 
+    def startEncode(self):
+        encodeThread = Thread(target=valueTings.encode)
+        encodeThread.start()
+
     def haltEncode(self):
         self.haltEncodeFlag = True
 
@@ -229,9 +233,19 @@ class encodeAndValue:
 class windowManager:
     def __init__(self):
         pass
-    def envokeFileSelectWindow(self):
-            selectFile = selectFileWindow()
-            selectFile.mainloop()
+
+    def invokeFileSelectWindow(self):
+        selectFile = selectFileWindow()
+        selectFile.mainloop()
+
+    def invokeMainWindow(self):
+        mainWindowStuff = mainWindow()
+        mainWindowStuff.mainloop()
+
+    def invokeEncodeStatusWindow(self):
+        encodeStatus = encodeStatusWindow()
+        encodeStatus.after(1, encodeStatus.update)
+        encodeStatus.mainloop()
 
 
 class ytdlpDownloader:
@@ -401,13 +415,7 @@ class mainWindow(Tk):
 
     def startEncode(self):
         self.destroy()
-        # start encodes
-        encodeThread = Thread(target=valueTings.encode)
-        encodeThread.start()
-        # encode status window
-        encodeStatus = encodeStatusWindow()
-        encodeStatus.after(1, encodeStatus.update)
-        encodeStatus.mainloop()
+        windows.invokeEncodeStatusWindow()
 
 
 class encodeStatusWindow(Tk):
@@ -416,6 +424,8 @@ class encodeStatusWindow(Tk):
         self.title("Video Bottler")
         self.encodeStatFrame = Frame(self)
         self.encodeStatFrame.pack(anchor=W)
+
+        valueTings.startEncode()
 
         self.fpsLabel = Label(self.encodeStatFrame, text="")
         self.fpsLabel.pack(anchor=W)
@@ -493,7 +503,7 @@ if __name__ == "__main__":
         if len(sys.argv) >= 2:
             valueTings.setFile(sys.argv[1])
         else:
-            windows.envokeFileSelectWindow()
+            windows.invokeFileSelectWindow()
         valueTings.setDefaults()
         # initialize first couple set of values
         audioBitrate = valueTings.setSourceAudioBitrate()
@@ -502,5 +512,4 @@ if __name__ == "__main__":
         targetVideoBitrate = valueTings.setTargetVideoBitrate()
         videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
         # main window for setting values and stuff
-        mainWindowStuff = mainWindow()
-        mainWindowStuff.mainloop()
+        windows.invokeMainWindow()
