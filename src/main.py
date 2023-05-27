@@ -374,10 +374,10 @@ class encodeStatusWindow(Tk):
         self.totalSizeLabel.pack(anchor=W)
         self.outTimeLabel = Label(self.encodeStatFrame, text="")
         self.outTimeLabel.pack(anchor=W)
-        self.dumpedFramesLabel = Label(self.encodeStatFrame, text="")
-        self.dumpedFramesLabel.pack(anchor=W)
-        self.dropedFramesLabel = Label(self.encodeStatFrame, text="")
-        self.dropedFramesLabel.pack(anchor=W)
+        #self.dumpedFramesLabel = Label(self.encodeStatFrame, text="")
+        #self.dumpedFramesLabel.pack(anchor=W)
+        #self.dropedFramesLabel = Label(self.encodeStatFrame, text="")
+        #self.dropedFramesLabel.pack(anchor=W)
         self.speedLabel = Label(self.encodeStatFrame, text="")
         self.speedLabel.pack(anchor=W)
 
@@ -398,8 +398,8 @@ class encodeStatusWindow(Tk):
         self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
         self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
         self.outTimeLabel["text"] = "video length: "+str(self.taskStatus["outTime"]/1000000)+"sec"
-        self.dumpedFramesLabel["text"] = "dumped frames: "+str(self.taskStatus["dumpedFrames"])
-        self.dropedFramesLabel["text"] = "droped frames: "+str(self.taskStatus["dropedFrames"])
+        #self.dumpedFramesLabel["text"] = "dumped frames: "+str(self.taskStatus["dumpedFrames"])
+        #self.dropedFramesLabel["text"] = "droped frames: "+str(self.taskStatus["dropedFrames"])
         self.speedLabel["text"] = "speed: "+self.taskStatus["speed"]
         
 
