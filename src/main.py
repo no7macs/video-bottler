@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import yt_dlp
 import tkinter
+import keyboard
 import tkinter.ttk as ttk
 from tkinter.filedialog import *
 from typing import Optional, Tuple, Union
@@ -230,24 +231,6 @@ class encodeAndValue:
         self.encodeStage = 3
 
 
-class windowManager:
-    def __init__(self):
-        pass
-
-    def invokeFileSelectWindow(self):
-        selectFile = selectFileWindow()
-        selectFile.mainloop()
-
-    def invokeMainWindow(self):
-        mainWindowStuff = mainWindow()
-        mainWindowStuff.mainloop()
-
-    def invokeEncodeStatusWindow(self):
-        encodeStatus = encodeStatusWindow()
-        encodeStatus.after(1, encodeStatus.update)
-        encodeStatus.mainloop()
-
-
 class ytdlpDownloader:
     def __init__(self, url, folder):
         self.tempFolder = folder
@@ -344,12 +327,19 @@ class selectFileWindow(TkinterDnD.Tk):
         self.dnd_bind('<<Drop>>', lambda a:self.setFile(a.data))
         self.fileSelectFrame()
         self.fileDownloadFrame()
+        self.after(100, self.checkForKeypress)
+        self.mainloop()
+
+    def checkForKeypress(self):
+        if keyboard.is_pressed("enter") and not self.downloadEntry.get() == "" and self.winfo_ismapped() == 1:
+            self.downloadFromUrl()
+        self.after(1, self.checkForKeypress)
 
     def checkFile(self) -> None:
-        print(self.file)
         if not self.file == "" and os.path.exists(self.file):
-            self.destroy()
             valueTings.setFile(self.file)
+            self.destroy()
+        self.after(1, self.checkForKeypress)
 
     def setFile(self, file):
         print(file)
@@ -373,9 +363,8 @@ class selectFileWindow(TkinterDnD.Tk):
         self.downloadEntry = Entry(self.downloadFileFrame, textvariable=self.downloadUrl)
         self.downloadEntry.grid(row=1, column=0)
         self.downloadStatusLabel = Label(self.downloadFileFrame)
-        self.browseFileButton.grid(row=2, column=0)
-        self.browseFileButton = Button(self.downloadFileFrame, text="Download", command=self.downloadFromUrl)
-        self.browseFileButton.grid(row=3, column=0)
+        self.downloadButton = Button(self.downloadFileFrame, text="Download", command=self.downloadFromUrl)
+        self.downloadButton.grid(row=2, column=0)
 
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
@@ -406,16 +395,17 @@ class mainWindow(Tk):
         self.buttonFrame.pack(anchor=E)
         self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode)
         self.encodeButton.pack(side=RIGHT)
-
         self.protocol("WM_DELETE_WINDOW", self.onClose)
+        self.mainloop()
 
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
         self.destroy()
+        selectFileWindow()
 
     def startEncode(self):
         self.destroy()
-        windows.invokeEncodeStatusWindow()
+        encodeStatusWindow()
 
 
 class encodeStatusWindow(Tk):
@@ -424,7 +414,6 @@ class encodeStatusWindow(Tk):
         self.title("Video Bottler")
         self.encodeStatFrame = Frame(self)
         self.encodeStatFrame.pack(anchor=W)
-
         valueTings.startEncode()
 
         self.fpsLabel = Label(self.encodeStatFrame, text="")
@@ -452,9 +441,11 @@ class encodeStatusWindow(Tk):
         self.doneButton = Button(self, text="Done", command=self.done)
         self.exitButton = Button(self, text="Exit", command=self.exit)
         self.after(1, self.update)
+        self.mainloop()
 
     def done(self):
-        pass
+        self.destroy()
+        mainWindow()
 
     def exit(self):
         self.destroy()
@@ -490,20 +481,19 @@ class encodeStatusWindow(Tk):
         elif self.encodeStage == 3:
             self.cancelButton.pack_forget()
         if self.encodeStage == 3 and self.exitButton.winfo_ismapped() == 0 and self.doneButton.winfo_ismapped() == 0:
-            self.doneButton.pack(side=RIGHT)
             self.exitButton.pack(side=RIGHT)
+            self.doneButton.pack(side=RIGHT)
         self.after(100, self.update)
 
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
         valueTings = encodeAndValue()
-        windows = windowManager()
         # file select
         if len(sys.argv) >= 2:
             valueTings.setFile(sys.argv[1])
         else:
-            windows.invokeFileSelectWindow()
+            selectFileWindow()
         valueTings.setDefaults()
         # initialize first couple set of values
         audioBitrate = valueTings.setSourceAudioBitrate()
@@ -512,4 +502,4 @@ if __name__ == "__main__":
         targetVideoBitrate = valueTings.setTargetVideoBitrate()
         videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
         # main window for setting values and stuff
-        windows.invokeMainWindow()
+        mainWindow()
