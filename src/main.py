@@ -157,13 +157,14 @@ class encodeAndValue:
             #print(progressText)
             if progressText is None:
                 break
-            progressText = progressText.decode("utf-8")
+            # should be rewriten later to not be all if else (yanderedev level garbage)
+            progressText = progressText.decode("utf-8").strip().replace(" ", "")
             if progressText.startswith("frame="):
                 self.queue[0] = int(progressText.partition('=')[-1])
             elif progressText.startswith("fps="):
                 self.taskStats["fps"] = float(progressText.partition('=')[-1])
-            elif progressText.startswith("bitrate=") and (not "N/A" in progressText):
-                self.taskStats["bitrate"] = progressText.partition('=')[-1]
+            elif progressText.startswith("bitrate="):
+                self.taskStats["bitrate"] =  progressText.partition('=')[-1]
             elif progressText.startswith("total_size=") and (not "N/A" in progressText):
                 self.taskStats["totalSize"] = int(progressText.partition('=')[-1])
             elif progressText.startswith("out_time_ms="):
@@ -393,13 +394,14 @@ class encodeStatusWindow(Tk):
         # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
 
-        self.fpsLabel["text"] = "fps: "+self.taskStatus["fps"]
-        self.bitrateLabel["text"] = "bitrate:"+self.taskStatus["bitrate"]
-        self.totalSizeLabel["text"] = self.taskStatus["totalSize"]
-        self.outTimeLabel["text"] = self.taskStatus["outTime"]
-        self.dumpedFramesLabel["text"] = self.taskStatus["dumpedFrames"]
-        self.dropedFramesLabel["text"] = self.taskStatus["dropedFrames"]
-        self.speedLabel["text"] = self.taskStatus["speed"]
+        self.fpsLabel["text"] = "fps: "+str(self.taskStatus["fps"])
+        self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
+        self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
+        self.outTimeLabel["text"] = "video length: "+str(self.taskStatus["outTime"]/1000000)+"sec"
+        self.dumpedFramesLabel["text"] = "dumped frames: "+str(self.taskStatus["dumpedFrames"])
+        self.dropedFramesLabel["text"] = "droped frames: "+str(self.taskStatus["dropedFrames"])
+        self.speedLabel["text"] = "speed: "+self.taskStatus["speed"]
+        
 
         if self.haltEncodeFlag == True: #check if cancel flag has been set
             self.encodeStatusMessage["text"] = "Status: Canceling"
