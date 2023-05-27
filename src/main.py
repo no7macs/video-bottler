@@ -23,8 +23,12 @@ def tempFileName() -> str:
 
 
 class encodeAndValue:
-    def __init__(self, file) -> None:
-        self.file = file
+    def __init__(self) -> None:
+        self.file = ""
+
+    # this exists since everything needs the file but the file is set after the class is envoked in the select file window making it so everything has to run afterwards
+    # for the love of god please find a better solution
+    def setDefaults(self) -> None:
         self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", 
                                         "-show_format", "-show_streams", self.file],
                                         stdout = subprocess.PIPE,
@@ -44,6 +48,9 @@ class encodeAndValue:
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
 
+    def setFile(self, file):
+        self.file = file
+
     def setSourceAudioBitrate(self) -> float:
         if "duration" in self.ffmpegInfoOut["streams"][1]:
                     self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
@@ -58,7 +65,7 @@ class encodeAndValue:
             self.tempFoldername = tempFoldername
             #  copy audio stream with same conatiner into temp folder
             self.tempFile = os.path.join(self.tempFoldername, ("audio"+os.path.basename(self.file)))
-            self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", file, "-vn", "-acodec", "copy", self.tempFile],
+            self.audioSeperate = subprocess.run(["ffmpeg", "-y", "-i", self.file, "-vn", "-acodec", "copy", self.tempFile],
                                                 stdout = subprocess.PIPE,
                                                 stderr = subprocess.STDOUT)
             self.audioFileSize = os.path.getsize(self.tempFile)*8 #bytes to bits
@@ -125,6 +132,9 @@ class encodeAndValue:
                                                             stderr = subprocess.STDOUT).stdout)['streams'][0]['nb_read_packets'])
         return(self.frameCount)
 
+    def getFile(self) -> str:
+        return(self.file)
+
     def getTargetBitrates(self) -> float:
         return(self.targetAudioBitrate, self.targetVideoBitrate)
     
@@ -186,9 +196,9 @@ class encodeAndValue:
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
-        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(file), initialfile=f"{os.path.splitext(file)[0]}1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(self.file)[0]}1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         self.encodeStage = 1
-        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
@@ -200,7 +210,7 @@ class encodeAndValue:
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
-        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", file, "-b:v", f"{self.alteredVideoBitrate}k",
+        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
                                     "-vf", f"scale={self.videoX}:{self.videoY}",
@@ -214,6 +224,14 @@ class encodeAndValue:
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
+
+
+class windowManager:
+    def __init__(self):
+        pass
+    def envokeFileSelectWindow(self):
+            selectFile = selectFileWindow()
+            selectFile.mainloop()
 
 
 class ytdlpDownloader:
@@ -317,14 +335,12 @@ class selectFileWindow(TkinterDnD.Tk):
         print(self.file)
         if not self.file == "" and os.path.exists(self.file):
             self.destroy()
+            valueTings.setFile(self.file)
 
     def setFile(self, file):
         print(file)
         self.file=file.replace("{","").replace("}","")
         self.checkFile()
-
-    def getFile(self) -> str:
-        return(self.file)
 
     def fileSelectFrame(self):
         self.selectFileFrame = Frame(self)
@@ -393,6 +409,7 @@ class mainWindow(Tk):
         encodeStatus.after(1, encodeStatus.update)
         encodeStatus.mainloop()
 
+
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
@@ -422,7 +439,15 @@ class encodeStatusWindow(Tk):
         self.actionButtonsFrame = Frame(self)
         self.actionButtonsFrame.pack(anchor=W)
         self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
+        self.doneButton = Button(self, text="Done", command=self.done)
+        self.exitButton = Button(self, text="Exit", command=self.exit)
         self.after(1, self.update)
+
+    def done(self):
+        pass
+
+    def exit(self):
+        self.destroy()
 
     def update(self):
         # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
@@ -454,21 +479,23 @@ class encodeStatusWindow(Tk):
             self.cancelButton.pack(side=RIGHT)
         elif self.encodeStage == 3:
             self.cancelButton.pack_forget()
-        
+        if self.encodeStage == 3 and self.exitButton.winfo_ismapped() == 0 and self.doneButton.winfo_ismapped() == 0:
+            self.doneButton.pack(side=RIGHT)
+            self.exitButton.pack(side=RIGHT)
         self.after(100, self.update)
 
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
+        valueTings = encodeAndValue()
+        windows = windowManager()
         # file select
         if len(sys.argv) >= 2:
-            file = sys.argv[1]
+            valueTings.setFile(sys.argv[1])
         else:
-            selectFile = selectFileWindow()
-            selectFile.mainloop()
-            file = selectFile.getFile()
+            windows.envokeFileSelectWindow()
+        valueTings.setDefaults()
         # initialize first couple set of values
-        valueTings = encodeAndValue(file)
         audioBitrate = valueTings.setSourceAudioBitrate()
         videoBitrate = valueTings.setSourceVideoBitrate()
         targetAudioBitrate = valueTings.setTargetAudioBitrate()
