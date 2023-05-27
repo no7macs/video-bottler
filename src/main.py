@@ -107,6 +107,7 @@ class encodeAndValue:
         self.targetVideoWidth = self.videoWidth * self.bitrateDifference
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
+        print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
         return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
 
     def setAlteredAudioVideoBitrate(self, precentage) -> float:
@@ -119,7 +120,8 @@ class encodeAndValue:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def setAlteredVideoSize(self) -> float:
-        self.alteredVideoWidth = self.targetVideoWidth*(self.targetVideoBitrate/self.alteredVideoBitrate)
+        print((self.alteredVideoBitrate/self.targetVideoBitrate))
+        self.alteredVideoWidth = self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate)
         #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
@@ -458,7 +460,6 @@ class encodeStatusWindow(Tk):
         # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
 
-        print(self.taskStatus["encodePrecent"])
         self.fpsLabel["text"] = "fps: "+str(self.taskStatus["fps"])
         self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
         self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
