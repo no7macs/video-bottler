@@ -327,19 +327,21 @@ class selectFileWindow(TkinterDnD.Tk):
         self.dnd_bind('<<Drop>>', lambda a:self.setFile(a.data))
         self.fileSelectFrame()
         self.fileDownloadFrame()
-        self.after(100, self.checkForKeypress)
+        self._job = self.after(100, self.checkFile)
         self.mainloop()
 
-    def checkForKeypress(self):
-        if keyboard.is_pressed("enter") and not self.downloadEntry.get() == "" and self.winfo_ismapped() == 1:
+    def checkKeypress(self):
+        if keyboard.is_pressed("enter") and not self.downloadEntry.get() == "":
             self.downloadFromUrl()
-        self.after(1, self.checkForKeypress)
+        self._job = self.after(1, self.checkKeypress)
 
-    def checkFile(self) -> None:
+    def checkFile(self) -> None: #also checks if enter was pressed
         if not self.file == "" and os.path.exists(self.file):
             valueTings.setFile(self.file)
+            self.after_cancel(self._job)
+            self._job = None
             self.destroy()
-        self.after(1, self.checkForKeypress)
+        self.after(1, self.checkKeypress)
 
     def setFile(self, file):
         print(file)
@@ -369,7 +371,7 @@ class selectFileWindow(TkinterDnD.Tk):
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
                                           filetypes = (("Video",["*.webm*","*.mp4*","*.mov*","*.m4a*"]), ("all files", "*.*")))
-        self.after(1, self.checkFile)
+        self.checkFile()
 
     def downloadFromUrl(self):
         self.tempFoldername = tempFoldername
@@ -440,10 +442,12 @@ class encodeStatusWindow(Tk):
         self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
         self.doneButton = Button(self, text="Done", command=self.done)
         self.exitButton = Button(self, text="Exit", command=self.exit)
-        self.after(1, self.update)
+        self._job = self.after(1, self.update)
         self.mainloop()
 
     def done(self):
+        self.after_cancel(self._job)
+        self._job = None
         self.destroy()
         mainWindow()
 
@@ -454,6 +458,7 @@ class encodeStatusWindow(Tk):
         # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
 
+        print(self.taskStatus["encodePrecent"])
         self.fpsLabel["text"] = "fps: "+str(self.taskStatus["fps"])
         self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
         self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
@@ -475,6 +480,7 @@ class encodeStatusWindow(Tk):
             self.encodeProgressBar["value"] = self.taskStatus["encodePrecent"]
         elif self.encodeStage == 3:
             self.encodeStatusMessage["text"] = "Status: Done"
+            self.encodeProgressBar["value"] = 100
 
         if self.encodeStage < 3 and self.cancelButton.winfo_ismapped() == 0:
             self.cancelButton.pack(side=RIGHT)
@@ -483,7 +489,7 @@ class encodeStatusWindow(Tk):
         if self.encodeStage == 3 and self.exitButton.winfo_ismapped() == 0 and self.doneButton.winfo_ismapped() == 0:
             self.exitButton.pack(side=RIGHT)
             self.doneButton.pack(side=RIGHT)
-        self.after(100, self.update)
+        self._job = self.after(100, self.update)
 
 
 if __name__ == "__main__":
