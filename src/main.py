@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import yt_dlp
 import tkinter
+import cProfile
 import tkinter.ttk as ttk
 from tkinter.filedialog import *
 from typing import Optional, Tuple, Union
@@ -282,7 +283,6 @@ class bitrateSlider(Frame):
         if self.snapToCommonAudio == True:
             self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
             self.bitrateRatioSlider.set(self.snapedRatio)
-        testTest["text"] = str(bitrateRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
@@ -304,7 +304,7 @@ class bitrateSlider(Frame):
 class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
         TkinterDnD.Tk.__init__(self, *args, **kwargs)
-        #self.title("Video Bottler")
+        self.title("Video Bottler")
         #customtkinter.set_appearance_mode("system")
         self.file = ""
         #customtkinter.set_widget_scaling(1000)
@@ -360,9 +360,25 @@ class selectFileWindow(TkinterDnD.Tk):
         self.checkFile()
 
 
+class mainWindow(Tk):
+    def __init__(self, *args, **kwargs):
+        Tk.__init__(self, *args, **kwargs)
+        self.title("Video Bottler")
+        self.snapToAudio = IntVar()
+        self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
+        self.snapToAudioValuesBox.pack(anchor=W)
+        self.videoaudioBitrateSlider = bitrateSlider(self)
+        self.videoaudioBitrateSlider.pack(anchor=W)
+        self.sliderResetDefaultsButton = Button(self, text = "Reset Bitrate", command=lambda:self.videoaudioBitrateSlider.setDefaults())
+        self.sliderResetDefaultsButton.pack(anchor=W)
+        self.statusLabel = Label(self, text="")
+        self.statusLabel.pack(anchor=W)
+
+
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
+        self.title("Video Bottler")
         self.encodeStatFrame = Frame(self)
         self.encodeStatFrame.pack(anchor=W)
 
@@ -388,32 +404,31 @@ class encodeStatusWindow(Tk):
         self.actionButtonsFrame = Frame(self)
         self.actionButtonsFrame.pack(anchor=W)
         self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
-        self.after(1, self.updateProgressBar)
+        self.after(1, self.update)
 
-    def updateProgressBar(self):
+    def update(self):
         # {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.encodeStage, self.haltEncodeFlag, self.taskStatus = valueTings.getEncodeStatus()
 
         self.fpsLabel["text"] = "fps: "+str(self.taskStatus["fps"])
         self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
         self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
-        self.outTimeLabel["text"] = "video length: "+str(self.taskStatus["outTime"]/1000000)+"sec"
+        self.outTimeLabel["text"] = "video length: "+str(self.taskStatus["outTime"]/1000/1000)+"sec"
         #self.dumpedFramesLabel["text"] = "dumped frames: "+str(self.taskStatus["dumpedFrames"])
         #self.dropedFramesLabel["text"] = "droped frames: "+str(self.taskStatus["dropedFrames"])
         self.speedLabel["text"] = "speed: "+self.taskStatus["speed"]
         
-
         if self.haltEncodeFlag == True: #check if cancel flag has been set
             self.encodeStatusMessage["text"] = "Status: Canceling"
             if self.encodeStage == 3: # if it fully closed out of encoding, setting the status to 3 (final thing it does)
                 self.encodeStatusMessage["text"] = "Status: Canceled"
                 self.encodeProgressBar["value"] = 100
         elif self.encodeStage == 1:
-            self.encodeStatusMessage["text"] = "Status: Pass1"
-            self.encodeProgressBar["value"] = self.taskStatus["encodePrecent"]/2
+            self.encodeStatusMessage["text"] = "Status: Pass 1 of 2"
+            self.encodeProgressBar["value"] = self.taskStatus["encodePrecent"]
         elif self.encodeStage == 2:
-            self.encodeStatusMessage["text"] = "Status: Pass2"
-            self.encodeProgressBar["value"] = (self.taskStatus["encodePrecent"]/2)+50
+            self.encodeStatusMessage["text"] = "Status: Pass 2 of 2"
+            self.encodeProgressBar["value"] = self.taskStatus["encodePrecent"]
         elif self.encodeStage == 3:
             self.encodeStatusMessage["text"] = "Status: Done"
 
@@ -422,7 +437,7 @@ class encodeStatusWindow(Tk):
         elif self.encodeStage == 3:
             self.cancelButton.pack_forget()
         
-        self.after(1000, self.updateProgressBar)
+        self.after(100, self.update)
 
 
 if __name__ == "__main__":
@@ -442,24 +457,12 @@ if __name__ == "__main__":
         targetVideoBitrate = valueTings.setTargetVideoBitrate()
         videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
         # main window for setting values and stuff
-        root = Tk()
-        root.title("Video Bottler")
-        snapToAudio = IntVar()
-        snapToAudioValuesBox = Checkbutton(root, text="Snap to common audio bitrates", variable=snapToAudio, onvalue=1, offvalue=0, command=lambda:videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(snapToAudio.get())))
-        snapToAudioValuesBox.pack(anchor=W)
-        videoaudioBitrateSlider = bitrateSlider(root)
-        videoaudioBitrateSlider.pack(anchor=W)
-        testTest = Label(root, text='0')
-        testTest.pack(anchor=W)
-        sliderResetDefaultsButton = Button(root, text = "Reset Bitrate", command=lambda:videoaudioBitrateSlider.setDefaults())
-        sliderResetDefaultsButton.pack(anchor=W)
-        statusLabel = Label(root, text="")
-        statusLabel.pack(anchor=W)
-        root.mainloop()
+        mainWindowStuff = mainWindow()
+        mainWindowStuff.mainloop()
         # start encodes
         encodeThread = Thread(target=valueTings.encode)
         encodeThread.start()
         # encode status window
         encodeStatus = encodeStatusWindow()
-        encodeStatus.after(1, encodeStatus.updateProgressBar)
+        encodeStatus.after(1, encodeStatus.update)
         encodeStatus.mainloop()
