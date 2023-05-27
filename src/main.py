@@ -7,7 +7,6 @@ import shutil
 import tempfile
 import yt_dlp
 import tkinter
-import cProfile
 import tkinter.ttk as ttk
 from tkinter.filedialog import *
 from typing import Optional, Tuple, Union
@@ -32,7 +31,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout)
         self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
-                                        stderr = subprocess.STDOUT).stdout))  
+                                        stderr = subprocess.STDOUT).stdout),)  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
         self.upperVideoSize = (5.8*8*1024*1024) #megabits
@@ -371,9 +370,28 @@ class mainWindow(Tk):
         self.videoaudioBitrateSlider.pack(anchor=W)
         self.sliderResetDefaultsButton = Button(self, text = "Reset Bitrate", command=lambda:self.videoaudioBitrateSlider.setDefaults())
         self.sliderResetDefaultsButton.pack(anchor=W)
-        self.statusLabel = Label(self, text="")
-        self.statusLabel.pack(anchor=W)
+        #self.statusLabel = Label(self, text="")
+        #self.statusLabel.pack(anchor=W)
+        self.buttonFrame = Frame(self)
+        self.buttonFrame.pack(anchor=E)
+        self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode)
+        self.encodeButton.pack(side=RIGHT)
 
+        self.protocol("WM_DELETE_WINDOW", self.onClose)
+
+    def onClose(self):
+        #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
+        self.destroy()
+
+    def startEncode(self):
+        self.destroy()
+        # start encodes
+        encodeThread = Thread(target=valueTings.encode)
+        encodeThread.start()
+        # encode status window
+        encodeStatus = encodeStatusWindow()
+        encodeStatus.after(1, encodeStatus.update)
+        encodeStatus.mainloop()
 
 class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
@@ -459,10 +477,3 @@ if __name__ == "__main__":
         # main window for setting values and stuff
         mainWindowStuff = mainWindow()
         mainWindowStuff.mainloop()
-        # start encodes
-        encodeThread = Thread(target=valueTings.encode)
-        encodeThread.start()
-        # encode status window
-        encodeStatus = encodeStatusWindow()
-        encodeStatus.after(1, encodeStatus.update)
-        encodeStatus.mainloop()
