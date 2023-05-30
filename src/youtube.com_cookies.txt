@@ -5,4 +5,8 @@
 .youtube.com	TRUE	/	FALSE	0	CONSENT	YES+cb.20210328-17-p0.en+FX+723
 .youtube.com	TRUE	/	TRUE	0	YSC	mtdgUYkTgMY
 .youtube.com	TRUE	/	TRUE	1700271731	VISITOR_INFO1_LIVE	-jQwKGIemiA
-.youtube.com	TRUE	/	TRUE	1685170119	GPS	1
+.youtube.com	TRUE	/	TRUE	1685428998	GPS	1
+.instagram.com	TRUE	/	TRUE	1716630111	csrftoken	grQDDSwKlouDlsuisTw5vWefqaEYMWhC
+.instagram.com	TRUE	/	TRUE	1748246512	mid	ZHG48QALAAFM821umf4AmSDBbTbS
+.instagram.com	TRUE	/	TRUE	1748246512	ig_did	14C50E4D-0ED9-4D46-AED2-11371E682E78
+.instagram.com	TRUE	/	TRUE	1716710512	ig_nrcb	1

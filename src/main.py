@@ -85,7 +85,7 @@ class encodeAndValue:
         return(self.videoBitrate)
 
     #this one NEEDS to be changed (its very cringe)
-    def setTargetAudioBitrate(self) -> float:
+    def setTargetAudioVideoBitrate(self) -> float:
         self.targetAudioBitrate = self.audioBitrate
         if (self.targetAudioBitrate*self.audioTime)*1024 > self.upperVideoSize:
             for a,b in enumerate(self.commonAudioValues):
@@ -93,15 +93,13 @@ class encodeAndValue:
                     self.targetAudioBitrate = self.commonAudioValues[a-1]
                     break
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
-        return(self.targetAudioBitrate)
 
-    def setTargetVideoBitrate(self) -> float:
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
         self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.videoLength)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
-        return(self.targetVideoBitrate)
+        return(self.targetAudioBitrate, self.targetVideoBitrate)
 
     def setTargetVideoSize(self) -> float:
         self.targetVideoWidth = self.videoWidth * self.bitrateDifference
@@ -505,8 +503,7 @@ if __name__ == "__main__":
         # initialize first couple set of values
         audioBitrate = valueTings.setSourceAudioBitrate()
         videoBitrate = valueTings.setSourceVideoBitrate()
-        targetAudioBitrate = valueTings.setTargetAudioBitrate()
-        targetVideoBitrate = valueTings.setTargetVideoBitrate()
+        targetAudioBitrate, targetVideoBitrate = valueTings.setTargetAudioVideoBitrate()
         videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
         # main window for setting values and stuff
         mainWindow()
