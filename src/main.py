@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from tkinter import *
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from threading import Thread
+from datetime import datetime
 
 @contextmanager
 def tempFileName() -> str:
@@ -39,6 +40,7 @@ class encodeAndValue:
                                         stderr = subprocess.STDOUT).stdout),)  
         self.videoLength = float(self.ffmpegInfoOut["format"]["duration"])
         print("--videoLength--"+str(self.videoLength))
+        print(self.ffmpegInfoOut["streams"][0])
         self.upperVideoSize = (5.8*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
@@ -48,6 +50,9 @@ class encodeAndValue:
         self.videoXYRatio = self.videoWidth/self.videoHeight
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
+
+        self.startime = datetime.strptime(self.ffmpegInfoOut["streams"][0]["tags"]["DURATION"], "%H:%M:%S.%f").strftime("%f")
+        print(self.startime)
 
     def setFile(self, file):
         self.file = file
@@ -268,7 +273,7 @@ class ytdlpDownloader:
     def download(self):
         ydl_opts = {
             'outtmpl':f"""{self.tempFolder}/%(title)s-%(id)s.%(ext)s""",
-            'cookiefile':'./youtube.com_cookies.txt',
+            'cookiefile':'./cookies.txt',
             'logger': self.MyLogger()
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -408,7 +413,7 @@ class mainWindow(Tk):
         #self.statusLabel.pack(anchor=W)
         self.buttonFrame = Frame(self)
         self.buttonFrame.pack(anchor=E)
-        self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode)
+        self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode, width=25)
         self.encodeButton.pack(side=RIGHT)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
         self.mainloop()
