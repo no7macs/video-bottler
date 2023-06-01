@@ -51,6 +51,7 @@ class encodeAndValue:
 
     def setFile(self, file):
         self.file = file
+        print(self.file)
 
     def setSourceAudioBitrate(self) -> float:
         if "duration" in self.ffmpegInfoOut["streams"][1]:
@@ -201,7 +202,7 @@ class encodeAndValue:
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
-        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(self.file)[0]}1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(self.file)[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
@@ -341,6 +342,8 @@ class selectFileWindow(TkinterDnD.Tk):
             self.after_cancel(self._job)
             self._job = None
             self.destroy()
+            valueTings.setDefaults()
+            mainWindow()
         self.after(1, self.checkKeypress)
 
     def setFile(self, file):
@@ -384,6 +387,16 @@ class mainWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
+
+        # initialize first couple set of values
+        audioBitrate = valueTings.setSourceAudioBitrate()
+        videoBitrate = valueTings.setSourceVideoBitrate()
+        targetAudioBitrate, targetVideoBitrate = valueTings.setTargetAudioVideoBitrate()
+        videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
+
+        self.videoPhaseStatFrame = Frame(self)
+        self.videoPhaseStatFrame.pack(anchor=W)
+
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
         self.snapToAudioValuesBox.pack(anchor=W)
@@ -491,6 +504,9 @@ class encodeStatusWindow(Tk):
         self._job = self.after(100, self.update)
 
 
+def main():
+    pass
+
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
         valueTings = encodeAndValue()
@@ -499,11 +515,3 @@ if __name__ == "__main__":
             valueTings.setFile(sys.argv[1])
         else:
             selectFileWindow()
-        valueTings.setDefaults()
-        # initialize first couple set of values
-        audioBitrate = valueTings.setSourceAudioBitrate()
-        videoBitrate = valueTings.setSourceVideoBitrate()
-        targetAudioBitrate, targetVideoBitrate = valueTings.setTargetAudioVideoBitrate()
-        videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
-        # main window for setting values and stuff
-        mainWindow()
