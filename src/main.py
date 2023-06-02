@@ -521,9 +521,7 @@ def main():
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
-
-        tmpath = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
-        sys.path.append(tmpath)
+        sys.path.append(getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__))))
 
         valueTings = encodeAndValue()
         # file select
