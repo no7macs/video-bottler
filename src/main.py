@@ -74,7 +74,7 @@ class encodeAndValue:
                                                 stdout = subprocess.PIPE,
                                                 stderr = subprocess.STDOUT)
             self.audioFileSize = os.path.getsize(self.tempFile)*8 #bytes to bits
-            self.audioBitrate = float(self.audioFileSize/self.length)/1000 # bits to kilobits (a second)
+            self.audioBitrate = float(self.audioFileSize/self.duration)/1000 # bits to kilobits (a second)
             os.remove(self.tempFile)
         print("--audio bitrate--"+str(self.audioBitrate))
         return(self.audioBitrate)
@@ -92,14 +92,14 @@ class encodeAndValue:
         self.startTime = float(self.ffmpegInfoOut["format"]["start_time"])
         self.startTime = float(0)
         self.endTime = float(self.ffmpegInfoOut["format"]["duration"])
-        self.length = float(self.endTime-self.startTime)
-        print("--videoLength--"+str(self.videoLength))
+        self.duration = float(self.endTime-self.startTime)
+        print("--duration--"+str(self.duration))
         return(self.startTime, self.endTime)
 
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> float:
         self.targetAudioBitrate = self.audioBitrate
-        if (self.targetAudioBitrate*self.length)*1024 > self.upperVideoSize:
+        if (self.targetAudioBitrate*self.duration)*1024 > self.upperVideoSize:
             for a,b in enumerate(self.commonAudioValues):
                 if b > self.targetAudioBitrate:
                     self.targetAudioBitrate = self.commonAudioValues[a-1]
@@ -107,7 +107,7 @@ class encodeAndValue:
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
 
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.length)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
+        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.duration)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
@@ -521,9 +521,16 @@ def main():
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
+
+        tmpath = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        sys.path.append(tmpath)
+
         valueTings = encodeAndValue()
         # file select
+        print(sys.argv)
         if len(sys.argv) >= 2:
             valueTings.setFile(sys.argv[1])
+            valueTings.setDefaults()
+            mainWindow()
         else:
             selectFileWindow()
