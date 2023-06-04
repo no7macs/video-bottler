@@ -49,12 +49,27 @@ class encodeAndValue:
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
 
-        #self.startime = datetime.strptime(self.ffmpegInfoOut["streams"][0]["tags"]["DURATION"], "%H:%M:%S.%f").strftime("%f")
-        #print(self.startime)
+        # initialize first couple set of values
+        self.startTime, self.endTime = self.setSourceTime()
+        self.audioBitrate = self.setSourceAudioBitrate()
+        self.videoBitrate = self.setSourceVideoBitrate()
+        self.usedStartTime, self.usedEndTime = self.setUsedTime(self.startTime, self.endTime)
+        self.targetAudioBitrate, self.targetVideoBitrate = self.setTargetAudioVideoBitrate()
+        self.videoX, self.videoY, self.bitDiff = self.setTargetVideoSize()
+        self.alteredAudioBitrate, self.alteredVideoBitrate = self.setAlteredAudioVideoBitrate(-1)
+        self.setAlteredVideoSize()
 
     def setFile(self, file):
         self.file = file
         print(self.file)
+
+    def setSourceTime(self) -> float:
+        self.startTime = float(self.ffmpegInfoOut["format"]["start_time"]) # sometimes things out a slightly higher number then 0
+        self.startTime = float(0) # so correct them and use 0
+        self.endTime = float(self.ffmpegInfoOut["format"]["duration"])
+        self.duration = float(self.endTime-self.startTime)
+        print("--duration--"+str(self.duration))
+        return(self.startTime, self.endTime)
 
     def setSourceAudioBitrate(self) -> float:
         #if "duration" in self.ffmpegInfoOut["streams"][1]:
@@ -88,18 +103,17 @@ class encodeAndValue:
         print("--videoBitrate--"+str(self.videoBitrate))
         return(self.videoBitrate)
 
-    def setSourceTime(self) -> float:
-        self.startTime = float(self.ffmpegInfoOut["format"]["start_time"])
-        self.startTime = float(0)
-        self.endTime = float(self.ffmpegInfoOut["format"]["duration"])
-        self.duration = float(self.endTime-self.startTime)
-        print("--duration--"+str(self.duration))
-        return(self.startTime, self.endTime)
+    def setUsedTime(self, start, end) -> float:
+        self.usedStartTime = start if start >= 0 else 0
+        self.usedEndTime = end if end < self.endTime else self.endTime
+        self.usedDuration = float(self.usedEndTime-self.usedStartTime)
+        print("--usedDuretion--"+str(self.usedDuration))
+        return(self.usedStartTime, self.usedEndTime)
 
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> float:
         self.targetAudioBitrate = self.audioBitrate
-        if (self.targetAudioBitrate*self.duration)*1024 > self.upperVideoSize:
+        if (self.targetAudioBitrate*self.usedDuration)*1024 > self.upperVideoSize:
             for a,b in enumerate(self.commonAudioValues):
                 if b > self.targetAudioBitrate:
                     self.targetAudioBitrate = self.commonAudioValues[a-1]
@@ -107,7 +121,7 @@ class encodeAndValue:
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
 
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.duration)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
+        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
@@ -122,11 +136,15 @@ class encodeAndValue:
 
     def setAlteredAudioVideoBitrate(self, precentage) -> float:
         self.audioUsagePrecentage = precentage
-        #whole numbers (too lazy to do math properly
-        self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*precentage)
-        self.alteredVideoBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate))
-        #print("--alteredAudioBitrate--"+str(self.alteredAudioBitrate))
-        #print("--alteredVideoBitrate--"+str(self.alteredVideoBitrate))
+        if not precentage == -1:
+            #whole numbers (too lazy to do math properly
+            self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*precentage)
+            self.alteredVideoBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate))
+            #print("--alteredAudioBitrate--"+str(self.alteredAudioBitrate))
+            #print("--alteredVideoBitrate--"+str(self.alteredVideoBitrate))
+        elif precentage == -1:
+            self.alteredAudioBitrate = self.targetAudioBitrate
+            self.alteredVideoBitrate = self.targetVideoBitrate
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
     def setAlteredVideoSize(self) -> float:
@@ -213,7 +231,7 @@ class encodeAndValue:
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
         self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
 
-        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(self.file)[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
@@ -241,6 +259,7 @@ class encodeAndValue:
                                     stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
+        #os.remove(self.file)
 
 
 class ytdlpDownloader:
@@ -287,6 +306,7 @@ class ytdlpDownloader:
         return(os.path.join(self.tempFolder, os.listdir(self.tempFolder)[0]))
 
 
+# needs to be redone to use ONLY altered variables and reajust on time change
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
@@ -339,15 +359,12 @@ class selectFileWindow(TkinterDnD.Tk):
         self.dnd_bind('<<Drop>>', lambda a:self.setFile(a.data))
         self.fileSelectFrame()
         self.fileDownloadFrame()
-        self._job = self.after(100, self.checkFile)
+        self._job = self.after(100, self.fileSelectEverntLoop)
         self.mainloop()
 
-    def checkKeypress(self):
+    def fileSelectEverntLoop(self) -> None: #also checks if enter was pressed
         if keyboard.is_pressed("enter") and not self.downloadEntry.get() == "":
             self.downloadFromUrl()
-        self._job = self.after(1, self.checkKeypress)
-
-    def checkFile(self) -> None: #also checks if enter was pressed
         if not self.file == "" and os.path.exists(self.file):
             valueTings.setFile(self.file)
             self.after_cancel(self._job)
@@ -355,12 +372,11 @@ class selectFileWindow(TkinterDnD.Tk):
             self.destroy()
             valueTings.setDefaults()
             mainWindow()
-        self.after(1, self.checkKeypress)
+        self._job = self.after(1, self.fileSelectEverntLoop)
 
     def setFile(self, file):
-        print(file)
         self.file=file.replace("{","").replace("}","")
-        self.checkFile()
+        #self.checkFile()
 
     def fileSelectFrame(self):
         self.selectFileFrame = Frame(self)
@@ -385,26 +401,21 @@ class selectFileWindow(TkinterDnD.Tk):
     def browseForFiles(self):
         self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
                                           filetypes = (("Video",["*.webm*","*.mp4*","*.mov*","*.m4a*"]), ("all files", "*.*")))
-        self.checkFile()
+        self.fileSelectEverntLoop()
 
     def downloadFromUrl(self):
         self.tempFoldername = tempFoldername
+        for a in os.listdir(self.tempFoldername): #clean temp dir because i'm too lazy to get a filename from ytdlp
+            os.remove(os.path.join(self.tempFoldername, a))
         ytdlp = ytdlpDownloader(self.downloadEntry.get(), self.tempFoldername)
         self.file = ytdlp.download()
-        self.checkFile()
+        self.fileSelectEverntLoop()
 
 
 class mainWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
-
-        # initialize first couple set of values
-        startTime, endTime = valueTings.setSourceTime()
-        audioBitrate = valueTings.setSourceAudioBitrate()
-        videoBitrate = valueTings.setSourceVideoBitrate()
-        targetAudioBitrate, targetVideoBitrate = valueTings.setTargetAudioVideoBitrate()
-        videoX, videoY, bitDiff = valueTings.setTargetVideoSize()
 
         self.videoPhaseStatFrame = Frame(self)
         self.videoPhaseStatFrame.pack(anchor=W)
@@ -414,7 +425,7 @@ class mainWindow(Tk):
         self.snapToAudioValuesBox.pack(anchor=W)
         self.videoaudioBitrateSlider = bitrateSlider(self)
         self.videoaudioBitrateSlider.pack(anchor=W)
-        self.sliderResetDefaultsButton = Button(self, text = "Reset Bitrate", command=lambda:self.videoaudioBitrateSlider.setDefaults())
+        self.sliderResetDefaultsButton = Button(self, text = "Reset", command=lambda:self.videoaudioBitrateSlider.setDefaults())
         self.sliderResetDefaultsButton.pack(anchor=W)
         #self.statusLabel = Label(self, text="")
         #self.statusLabel.pack(anchor=W)
@@ -521,7 +532,7 @@ def main():
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
-        sys.path.append(getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__))))
+        sys.path.append(getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))) #pyinstaller tempdir
 
         valueTings = encodeAndValue()
         # file select
