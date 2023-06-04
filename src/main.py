@@ -53,7 +53,7 @@ class encodeAndValue:
         self.startTime, self.endTime = self.setSourceTime()
         self.audioBitrate = self.setSourceAudioBitrate()
         self.videoBitrate = self.setSourceVideoBitrate()
-        self.usedStartTime, self.usedEndTime = self.setUsedTime(self.startTime, self.endTime)
+        self.setUsedTime(self.startTime, self.endTime)
         self.targetAudioBitrate, self.targetVideoBitrate = self.setTargetAudioVideoBitrate()
         self.videoX, self.videoY, self.bitDiff = self.setTargetVideoSize()
         self.alteredAudioBitrate, self.alteredVideoBitrate = self.setAlteredAudioVideoBitrate(-1)
@@ -103,12 +103,11 @@ class encodeAndValue:
         print("--videoBitrate--"+str(self.videoBitrate))
         return(self.videoBitrate)
 
-    def setUsedTime(self, start, end) -> float:
+    def setUsedTime(self, start, end) -> None:
         self.usedStartTime = start if start >= 0 else 0
         self.usedEndTime = end if end < self.endTime else self.endTime
         self.usedDuration = float(self.usedEndTime-self.usedStartTime)
         print("--usedDuretion--"+str(self.usedDuration))
-        return(self.usedStartTime, self.usedEndTime)
 
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> float:
@@ -169,6 +168,9 @@ class encodeAndValue:
     def getTargetBitrates(self) -> float:
         return(self.targetAudioBitrate, self.targetVideoBitrate)
     
+    def getUsedTime(self) -> float:
+        return(self.usedStartTime, self.usedEndTime)
+
     def getAlteredBitrates(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
 
@@ -306,46 +308,6 @@ class ytdlpDownloader:
         return(os.path.join(self.tempFolder, os.listdir(self.tempFolder)[0]))
 
 
-# needs to be redone to use ONLY altered variables and reajust on time change
-class bitrateSlider(Frame):
-    def __init__(self, *args, **kwargs):
-        Frame.__init__(self, *args, **kwargs)
-        self.bitrateSliderFrame = Frame(self)
-        self.bitrateSliderFrame.pack(anchor = W, expand=True, fill='both')
-        self.sliderValuesFrame = Frame(self.bitrateSliderFrame)
-        self.sliderValuesFrame.pack(anchor = W, expand=True, fill='both')
-        self.audioBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
-        self.audioBitrateLabel.pack(side=LEFT)
-        self.videoBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
-        self.videoBitrateLabel.pack(side=RIGHT)
-        #15 decimal places because i'm to lazy to do math properly
-        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.000000000000001, command=self.bitrateRatioSliderUpdate)
-        self.bitrateRatioSlider.pack(anchor = W)
-        self.snapToCommonAudio = False
-        self.setDefaults()
-
-    def bitrateRatioSliderUpdate(self, bitrateRatio):
-        # no it does not snap properly and gives wack numbers
-        if self.snapToCommonAudio == True:
-            self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
-            self.bitrateRatioSlider.set(self.snapedRatio)
-        self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
-        self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
-        self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
-        self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
-
-    def setDefaults(self) -> None:
-        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetBitrates()
-        self.audioBitrateLabel["text"] = str(int(self.targetAudioBitrate))+"kb/s"
-        self.videoBitrateLabel["text"] = str(int(self.targetVideoBitrate))+"kb/s"
-        self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
-        self.bitrateRatioSlider.set(self.audioUsagePrecentage)
-
-    def snapToCommonAudioValues(self, state:bool) -> None:
-        self.snapToCommonAudio = state
-
-
 # drag and drop exists in here for now, should revisit later and cleaned up
 class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
@@ -412,27 +374,84 @@ class selectFileWindow(TkinterDnD.Tk):
         self.fileSelectEverntLoop()
 
 
+class timeChangeEntries(Frame):
+    def __init__(self, *args, **kwargs):
+        Frame.__init__(self, *args, **kwargs)
+        #self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
+        self.startTimeLabel = Label(self, text="Start:")
+        self.startTimeLabel.grid(column=0, row=0)
+        self.startTimeEntry = Entry(self)
+        self.startTimeEntry.grid(column=1, row=0)
+        self.startTimeEntry.insert(0, str(self.usedStartTime))
+        self.endTimeLabel = Label(self, text="Start:")
+        self.endTimeLabel.grid(column=2, row=0)
+        self.endTimeEntry = Entry(self)
+        self.endTimeEntry.grid(column=3, row=0)
+
+# needs to be redone to use ONLY altered variables and readjust on time change
+class bitrateSlider(Frame):
+    def __init__(self, *args, **kwargs):
+        Frame.__init__(self, *args, **kwargs)
+        self.bitrateSliderFrame = Frame(self)
+        self.bitrateSliderFrame.pack(anchor = W, expand=True, fill='both')
+        self.sliderValuesFrame = Frame(self.bitrateSliderFrame)
+        self.sliderValuesFrame.pack(anchor = W, expand=True, fill='both')
+        self.audioBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
+        self.audioBitrateLabel.pack(side=LEFT)
+        self.videoBitrateLabel = Label(self.sliderValuesFrame, text='0kb/s')
+        self.videoBitrateLabel.pack(side=RIGHT)
+        #15 decimal places because i'm to lazy to do math properly
+        self.bitrateRatioSlider = Scale(self.bitrateSliderFrame, orient=HORIZONTAL, from_=0, to=1, showvalue=0, length=500, resolution=0.000000000000001, command=self.bitrateRatioSliderUpdate)
+        self.bitrateRatioSlider.pack(anchor = W)
+        self.snapToCommonAudio = False
+        self.setDefaults()
+
+    def bitrateRatioSliderUpdate(self, bitrateRatio):
+        # no it does not snap properly and gives wack numbers
+        if self.snapToCommonAudio == True:
+            self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
+            self.bitrateRatioSlider.set(self.snapedRatio)
+        self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
+        self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
+        self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
+        self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
+
+    def setDefaults(self) -> None:
+        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetBitrates()
+        self.audioBitrateLabel["text"] = str(int(self.targetAudioBitrate))+"kb/s"
+        self.videoBitrateLabel["text"] = str(int(self.targetVideoBitrate))+"kb/s"
+        self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
+        self.bitrateRatioSlider.set(self.audioUsagePrecentage)
+
+    def snapToCommonAudioValues(self, state:bool) -> None:
+        self.snapToCommonAudio = state
+
+
 class mainWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
 
         self.videoPhaseStatFrame = Frame(self)
-        self.videoPhaseStatFrame.pack(anchor=W)
+        self.videoPhaseStatFrame.grid(row=0, column=0, sticky=W)
+
+        self.changeDurationFrame = timeChangeEntries(self)
+        self.changeDurationFrame.grid(row=1, column=0, sticky=W)
 
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
-        self.snapToAudioValuesBox.pack(anchor=W)
+        self.snapToAudioValuesBox.grid(row=2, column=0, sticky=W)
         self.videoaudioBitrateSlider = bitrateSlider(self)
-        self.videoaudioBitrateSlider.pack(anchor=W)
+        self.videoaudioBitrateSlider.grid(row=3, column=0)
         self.sliderResetDefaultsButton = Button(self, text = "Reset", command=lambda:self.videoaudioBitrateSlider.setDefaults())
-        self.sliderResetDefaultsButton.pack(anchor=W)
+        self.sliderResetDefaultsButton.grid(row=4, column=0, sticky=W)
         #self.statusLabel = Label(self, text="")
         #self.statusLabel.pack(anchor=W)
         self.buttonFrame = Frame(self)
-        self.buttonFrame.pack(anchor=E)
+        self.buttonFrame.grid(row=5, column=0, sticky=E)
         self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode, width=25)
-        self.encodeButton.pack(side=RIGHT)
+        self.encodeButton.grid(row=0, column=0)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
         self.mainloop()
 
