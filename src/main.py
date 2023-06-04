@@ -497,8 +497,6 @@ class mainWindow(Tk):
         self.protocol("WM_DELETE_WINDOW", self.onClose)
         self.mainloop()
 
-        self.videoaudioBitrateSlider.bitrateRatioSliderUpdate(valueTings.getAudioUsagePrecentage())
-
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
         self.destroy()
