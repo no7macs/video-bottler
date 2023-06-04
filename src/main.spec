@@ -3,12 +3,17 @@ import tkinterdnd2
 
 block_cipher = None
 
+MediaInfo = "A:\\Documents\\MediaInfo\MediaInfo_CLI_23.04_Windows_x64\\MediaInfo.exe"
+ffmpeg = "A:\\Documents\\ffmpeg\\ffmpeg-6.0-full_build\\bin\\ffmpeg.exe"
+ffprobe = "A:\\Documents\\ffmpeg\\ffmpeg-6.0-full_build\\bin\\ffprobe.exe"
 
 a = Analysis(
-    ['./src/main.py'],
+    ['./main.py'],
     pathex=[],
     binaries=[(f"{tkinterdnd2.__path__[0]}", "tkinterdnd2"),
-                ("./src/MediaInfo.exe", ".")],
+                (MediaInfo, "."),
+                (ffmpeg, "."),
+                (ffprobe, ".")],
     datas=[],
     hiddenimports=[],
     hookspath=[],

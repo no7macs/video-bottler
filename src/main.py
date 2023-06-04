@@ -250,6 +250,7 @@ class encodeAndValue:
         self.fileEnding = "webm"
         self.taskStats = {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
+        valueTings.setAlteredVideoSize()
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
         newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
@@ -257,7 +258,7 @@ class encodeAndValue:
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
                                     "-pass", "1", "-an", "-f", "null", "NUL"], 
@@ -269,7 +270,7 @@ class encodeAndValue:
         self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
@@ -406,6 +407,10 @@ class timeChangeEntries(Frame):
         self.endTimeLabel.grid(column=2, row=0)
         self.endTimeEntry = Entry(self)
         self.endTimeEntry.grid(column=3, row=0)
+        self.endTimeEntry.insert(0, self.usedEndTime)
+    
+    def changeTime(self):
+        valueTings.setUsedTime(float(self.startTimeEntry.get()), float(self.endTimeEntry.get()))
 
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
@@ -427,13 +432,14 @@ class bitrateSlider(Frame):
 
     def bitrateRatioSliderUpdate(self, bitrateRatio):
         # no it does not snap properly and gives wack numbers
+        # no I will not fix it right now
         if self.snapToCommonAudio == True:
             self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
             self.bitrateRatioSlider.set(self.snapedRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
         valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
-        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getTargetAudioVideoBitrate()
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
 
