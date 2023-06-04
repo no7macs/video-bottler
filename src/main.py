@@ -135,13 +135,13 @@ class encodeAndValue:
 
     def setAlteredAudioVideoBitrate(self, precentage) -> None:
         self.audioUsagePrecentage = precentage
-        if not precentage == -1:
+        if not self.audioUsagePrecentage == -1:
             #whole numbers (too lazy to do math properly
-            self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*precentage)
+            self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*self.audioUsagePrecentage)
             self.alteredVideoBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate))
             #print("--alteredAudioBitrate--"+str(self.alteredAudioBitrate))
             #print("--alteredVideoBitrate--"+str(self.alteredVideoBitrate))
-        elif precentage == -1:
+        elif self.audioUsagePrecentage == -1:
             self.alteredAudioBitrate = self.targetAudioBitrate
             self.alteredVideoBitrate = self.targetVideoBitrate
         return()
@@ -185,6 +185,9 @@ class encodeAndValue:
 
     def getAlteredAudioVideoBitrate(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+
+    def getAudioUsagePrecentage(self) -> float:
+        return(self.audioUsagePrecentage)
 
     def getAlteredVideoSize(self) -> float:
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
@@ -398,19 +401,31 @@ class timeChangeEntries(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
         self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
+        self.startTimeStringVar = StringVar()
+        self.endTimeStringVar = StringVar()
+        self.startTimeStringVar.set(self.usedStartTime)
+        self.endTimeStringVar.set(self.usedEndTime)
+        self.startTimeStringVar.trace_add("write", self.changeTime)
+        self.endTimeStringVar.trace_add("write", self.changeTime)
         self.startTimeLabel = Label(self, text="Start:")
         self.startTimeLabel.grid(column=0, row=0)
-        self.startTimeEntry = Entry(self)
+        self.startTimeEntry = Entry(self, textvariable=self.startTimeStringVar)
         self.startTimeEntry.grid(column=1, row=0)
-        self.startTimeEntry.insert(0, str(self.usedStartTime))
+        #self.startTimeEntry.insert(0, str(self.usedStartTime))
         self.endTimeLabel = Label(self, text="Start:")
         self.endTimeLabel.grid(column=2, row=0)
-        self.endTimeEntry = Entry(self)
+        self.endTimeEntry = Entry(self, textvariable=self.endTimeStringVar)
         self.endTimeEntry.grid(column=3, row=0)
-        self.endTimeEntry.insert(0, self.usedEndTime)
+        #self.endTimeEntry.insert(0, self.usedEndTime)
     
-    def changeTime(self):
-        valueTings.setUsedTime(float(self.startTimeEntry.get()), float(self.endTimeEntry.get()))
+    def changeTime(self, *args):
+        print(args)
+        if not self.startTimeStringVar.get() == '' and not self.endTimeStringVar == '':
+            valueTings.setUsedTime(float(self.startTimeStringVar.get()), float(self.endTimeStringVar.get()))
+            valueTings.setTargetAudioVideoBitrate()
+            valueTings.setTargetVideoSize()
+            valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
+            self.master.videoaudioBitrateSlider.bitrateRatioSliderUpdate(valueTings.getAudioUsagePrecentage()) #namespace is a lie
 
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
@@ -442,6 +457,8 @@ class bitrateSlider(Frame):
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
+        #self._job = self.after(1000, self.bitrateRatioSliderUpdate(bitrateRatio))
+
 
     def setDefaults(self) -> None:
         self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetAudioVideoBitrate()
@@ -464,7 +481,6 @@ class mainWindow(Tk):
 
         self.changeDurationFrame = timeChangeEntries(self)
         self.changeDurationFrame.grid(row=1, column=0, sticky=W)
-
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
         self.snapToAudioValuesBox.grid(row=2, column=0, sticky=W)
@@ -480,6 +496,8 @@ class mainWindow(Tk):
         self.encodeButton.grid(row=0, column=0)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
         self.mainloop()
+
+        self.videoaudioBitrateSlider.bitrateRatioSliderUpdate(valueTings.getAudioUsagePrecentage())
 
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
