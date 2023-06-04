@@ -50,28 +50,28 @@ class encodeAndValue:
         self.targetVideoHeight = float(0)
 
         # initialize first couple set of values
-        self.startTime, self.endTime = self.setSourceTime()
-        self.audioBitrate = self.setSourceAudioBitrate()
-        self.videoBitrate = self.setSourceVideoBitrate()
+        self.setSourceTime()
+        self.setSourceAudioBitrate()
+        self.setSourceVideoBitrate()
         self.setUsedTime(self.startTime, self.endTime)
-        self.targetAudioBitrate, self.targetVideoBitrate = self.setTargetAudioVideoBitrate()
-        self.videoX, self.videoY, self.bitDiff = self.setTargetVideoSize()
-        self.alteredAudioBitrate, self.alteredVideoBitrate = self.setAlteredAudioVideoBitrate(-1)
+        self.setTargetAudioVideoBitrate()
+        self.setTargetVideoSize()
+        self.setAlteredAudioVideoBitrate(-1)
         self.setAlteredVideoSize()
 
     def setFile(self, file):
         self.file = file
         print(self.file)
 
-    def setSourceTime(self) -> float:
+    def setSourceTime(self):
         self.startTime = float(self.ffmpegInfoOut["format"]["start_time"]) # sometimes things out a slightly higher number then 0
         self.startTime = float(0) # so correct them and use 0
         self.endTime = float(self.ffmpegInfoOut["format"]["duration"])
         self.duration = float(self.endTime-self.startTime)
         print("--duration--"+str(self.duration))
-        return(self.startTime, self.endTime)
+        return()
 
-    def setSourceAudioBitrate(self) -> float:
+    def setSourceAudioBitrate(self) -> None:
         #if "duration" in self.ffmpegInfoOut["streams"][1]:
         #            self.audioTime = float(self.ffmpegInfoOut["streams"][1]["duration"])
         #else:
@@ -92,16 +92,16 @@ class encodeAndValue:
             self.audioBitrate = float(self.audioFileSize/self.duration)/1000 # bits to kilobits (a second)
             os.remove(self.tempFile)
         print("--audio bitrate--"+str(self.audioBitrate))
-        return(self.audioBitrate)
+        return()
     
-    def setSourceVideoBitrate(self) -> float:
+    def setSourceVideoBitrate(self) -> None:
         if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
             self.videoBitrate = float(self.ffmpegInfoOut["streams"][0]["bit_rate"])/1000
         else:
             self.videoBitrate = (float(self.mediaInfoOut["media"]["track"][0]["OverallBitRate"]) - (self.audioBitrate*1000))/1000
         #videoBitrate = 99999999 if b"N/A" in videoBitrate else float(videoBitrate)/1000
         print("--videoBitrate--"+str(self.videoBitrate))
-        return(self.videoBitrate)
+        return()
 
     def setUsedTime(self, start, end) -> None:
         self.usedStartTime = start if start >= 0 else 0
@@ -110,7 +110,7 @@ class encodeAndValue:
         print("--usedDuretion--"+str(self.usedDuration))
 
     #this one NEEDS to be changed (its very cringe)
-    def setTargetAudioVideoBitrate(self) -> float:
+    def setTargetAudioVideoBitrate(self) -> None:
         self.targetAudioBitrate = self.audioBitrate
         if (self.targetAudioBitrate*self.usedDuration)*1024 > self.upperVideoSize:
             for a,b in enumerate(self.commonAudioValues):
@@ -124,16 +124,16 @@ class encodeAndValue:
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
-        return(self.targetAudioBitrate, self.targetVideoBitrate)
+        return()
 
-    def setTargetVideoSize(self) -> float:
+    def setTargetVideoSize(self) -> None:
         self.targetVideoWidth = self.videoWidth * self.bitrateDifference
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
-        return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
+        return()
 
-    def setAlteredAudioVideoBitrate(self, precentage) -> float:
+    def setAlteredAudioVideoBitrate(self, precentage) -> None:
         self.audioUsagePrecentage = precentage
         if not precentage == -1:
             #whole numbers (too lazy to do math properly
@@ -144,35 +144,53 @@ class encodeAndValue:
         elif precentage == -1:
             self.alteredAudioBitrate = self.targetAudioBitrate
             self.alteredVideoBitrate = self.targetVideoBitrate
-        return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+        return()
 
-    def setAlteredVideoSize(self) -> float:
+    def setAlteredVideoSize(self) -> None:
         print((self.alteredVideoBitrate/self.targetVideoBitrate))
         self.alteredVideoWidth = self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate)
         #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
-        return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
+        return()
 
-    def setNumberOfFrames(self) -> float:
+    def setNumberOfFrames(self) -> None:
         self.frameCount = float(json.loads(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
                                                             "-show_entries", "stream=nb_read_packets", 
                                                             "-of", "csv=p=0", "-of", "json", self.file], 
                                                             stdout=subprocess.PIPE,
                                                             stderr = subprocess.STDOUT).stdout)['streams'][0]['nb_read_packets'])
-        return(self.frameCount)
+        return()
 
     def getFile(self) -> str:
         return(self.file)
 
-    def getTargetBitrates(self) -> float:
-        return(self.targetAudioBitrate, self.targetVideoBitrate)
-    
+    def getSourceTime(self) -> float:
+        return(self.startTime, self.endTime, self.duration)
+
+    def getSourceAudioBitrate(self) -> float:
+        return(self.audioBitrate)
+
+    def getSourceVideoBitrate(self) -> float:
+        return(self.videoBitrate)
+
     def getUsedTime(self) -> float:
         return(self.usedStartTime, self.usedEndTime)
 
-    def getAlteredBitrates(self) -> float:
+    def getTargetAudioVideoBitrate(self) -> float:
+        return(self.targetAudioBitrate, self.targetVideoBitrate)
+
+    def getTargetVideoSize(self) -> float:
+        return(self.targetVideoWidth, self.targetVideoHeight, self.bitrateDifference)
+
+    def getAlteredAudioVideoBitrate(self) -> float:
         return(self.alteredAudioBitrate, self.alteredVideoBitrate)
+
+    def getAlteredVideoSize(self) -> float:
+        return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
+
+    def getNumberOfFrames(self) -> float:
+        return(self.frameCount)
 
     def getEncodeStatus(self) -> float:
         return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
@@ -189,7 +207,8 @@ class encodeAndValue:
             self.queue = [0]
             self.encodePassProcessReader = Thread(target=self.encodeProcessReader, args=(process,))
             self.encodePassProcessReader.start()
-            self.totalFrames = self.setNumberOfFrames()
+            self.setNumberOfFrames()
+            self.totalFrames = self.getNumberOfFrames()
             while (process.poll() is None) and (self.haltEncodeFlag == False):
                 self.taskStats["encodePrecent"] = (self.queue[0]/self.totalFrames)*100
             process.stdout.close()
@@ -230,8 +249,8 @@ class encodeAndValue:
         self.audioCodec = "libopus"
         self.fileEnding = "webm"
         self.taskStats = {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
-        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredBitrates()
-        self.videoX, self.videoY, self.bitDiff = valueTings.setAlteredVideoSize()
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
+        self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
         newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         self.encodeStage = 1
@@ -377,7 +396,7 @@ class selectFileWindow(TkinterDnD.Tk):
 class timeChangeEntries(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
-        #self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
+        self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
         self.startTimeLabel = Label(self, text="Start:")
         self.startTimeLabel.grid(column=0, row=0)
         self.startTimeEntry = Entry(self)
@@ -413,12 +432,13 @@ class bitrateSlider(Frame):
             self.bitrateRatioSlider.set(self.snapedRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
+        valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getTargetAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
 
     def setDefaults(self) -> None:
-        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetBitrates()
+        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.targetAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.targetVideoBitrate))+"kb/s"
         self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
