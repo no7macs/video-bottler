@@ -38,13 +38,19 @@ class encodeAndValue:
         self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT).stdout),)  
-        print(self.ffmpegInfoOut["format"])
+        if self.ffmpegInfoOut["streams"][0]["codec_type"] == 'video':
+            self.ffmpegVidStrNum = 0
+            self.ffmpegAudStrNum = 1
+        elif self.ffmpegInfoOut["streams"][0]["codec_type"] == 'audio':
+            self.ffmpegVidStrNum = 1
+            self.ffmpegAudStrNum = 0
+        
         self.upperVideoSize = (5.8*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
-        self.videoWidth = float(self.ffmpegInfoOut["streams"][0]["width"])
-        self.videoHeight = float(self.ffmpegInfoOut["streams"][0]["height"])
+        self.videoWidth = float(self.ffmpegInfoOut["streams"][self.ffmpegVidStrNum]["width"])
+        self.videoHeight = float(self.ffmpegInfoOut["streams"][self.ffmpegVidStrNum]["height"])
         self.videoXYRatio = self.videoWidth/self.videoHeight
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
@@ -77,8 +83,8 @@ class encodeAndValue:
         #else:
         #    self.audioTime = float(self.mediaInfoOut["media"]["track"][2]["Duration"])
 
-        if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
-            self.audioBitrate = float(self.ffmpegInfoOut["streams"][1]["bit_rate"])/1000
+        if "bit_rate" in self.ffmpegInfoOut["streams"][self.ffmpegAudStrNum]:
+            self.audioBitrate = float(self.ffmpegInfoOut["streams"][self.ffmpegAudStrNum]["bit_rate"])/1000
         elif "BitRate" in self.mediaInfoOut["media"]["track"][2]:
             self.audioBitrate = float(self.mediaInfoOut["media"]["track"][2]["BitRate"])/1000
         else:
@@ -95,8 +101,8 @@ class encodeAndValue:
         return()
     
     def setSourceVideoBitrate(self) -> None:
-        if "bit_rate" in self.ffmpegInfoOut["streams"][1]:
-            self.videoBitrate = float(self.ffmpegInfoOut["streams"][0]["bit_rate"])/1000
+        if "bit_rate" in self.ffmpegInfoOut["streams"][self.ffmpegVidStrNum]:
+            self.videoBitrate = float(self.ffmpegInfoOut["streams"][self.ffmpegVidStrNum]["bit_rate"])/1000
         else:
             self.videoBitrate = (float(self.mediaInfoOut["media"]["track"][0]["OverallBitRate"]) - (self.audioBitrate*1000))/1000
         #videoBitrate = 99999999 if b"N/A" in videoBitrate else float(videoBitrate)/1000
@@ -107,17 +113,24 @@ class encodeAndValue:
         self.usedStartTime = start if start >= 0 else 0
         self.usedEndTime = end if end < self.endTime else self.endTime
         self.usedDuration = float(self.usedEndTime-self.usedStartTime)
-        print("--usedDuretion--"+str(self.usedDuration))
+        print("--usedDuration--"+str(self.usedDuration))
 
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> None:
         self.targetAudioBitrate = self.audioBitrate
+        print(str(self.targetAudioBitrate))
         if (self.targetAudioBitrate*self.usedDuration)*1024 > self.upperVideoSize:
+            print("TO MUCH AUDIO")
             for a,b in enumerate(self.commonAudioValues):
                 if b > self.targetAudioBitrate:
                     self.targetAudioBitrate = self.commonAudioValues[a-1]
                     break
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
+
+        print(self.videoBitrate)
+        if 1 < (self.videoBitrate/(self.videoHeight+self.videoWidth)):
+            self.videoBitrate = ((self.videoHeight+self.videoWidth)*1)
+        print(self.videoBitrate)
 
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
         self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
@@ -261,7 +274,7 @@ class encodeAndValue:
         self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
                                     "-pass", "1", "-an", "-f", "null", "NUL"], 
@@ -273,7 +286,7 @@ class encodeAndValue:
         self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
                                     "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
                                     "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                    "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                     "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                     "-threads", "0", "-row-mt", "1",
                                     "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
@@ -411,13 +424,14 @@ class timeChangeEntries(Frame):
         self.startTimeLabel.grid(column=0, row=0)
         self.startTimeEntry = Entry(self, textvariable=self.startTimeStringVar)
         self.startTimeEntry.grid(column=1, row=0)
-        #self.startTimeEntry.insert(0, str(self.usedStartTime))
         self.endTimeLabel = Label(self, text="Start:")
         self.endTimeLabel.grid(column=2, row=0)
         self.endTimeEntry = Entry(self, textvariable=self.endTimeStringVar)
         self.endTimeEntry.grid(column=3, row=0)
-        #self.endTimeEntry.insert(0, self.usedEndTime)
-    
+        self.defaultTimeVar = IntVar()
+        #self.useDefaultCheckBox = Checkbutton(self, text="Use default", variable=self.defaultTimeVar, onvalue=1, offvalue=0, command=self.toggleDefaultUsage)
+        #self.useDefaultCheckBox.grid(column=4, row=0)
+
     def changeTime(self, *args):
         print(args)
         if not self.startTimeStringVar.get() == '' and not self.endTimeStringVar == '':
@@ -426,6 +440,13 @@ class timeChangeEntries(Frame):
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
             self.master.videoaudioBitrateSlider.bitrateRatioSliderUpdate(valueTings.getAudioUsagePrecentage()) #namespace is a lie
+
+    #def toggleDefaultUsage(self):
+    #    if self.defaultTimeVar.get() == 1:
+    #        pass
+    #    elif self.defaultTimeVar.get() == 0:
+    #        pass
+
 
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
