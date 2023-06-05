@@ -123,10 +123,9 @@ class encodeAndValue:
                 if a*self.usedDuration*1024 < self.upperVideoSize:
                     self.targetAudioBitrate = a
                     break
-        print(self.targetAudioBitrate)
-
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
 
+        # try to make spookie bitrates not rattle everytthing else
         print(self.videoBitrate)
         if 1 < (self.videoBitrate/(self.videoHeight+self.videoWidth)):
             self.videoBitrate = ((self.videoHeight+self.videoWidth)*1)
@@ -140,9 +139,11 @@ class encodeAndValue:
         return()
 
     def setTargetVideoSize(self) -> None:
-        self.targetVideoWidth = self.videoWidth * self.bitrateDifference
+        self.targetVideoWidth = max(min(self.videoWidth, (self.videoWidth * self.bitrateDifference)), 280)
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
+        #if (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)) > 1:
+        print((self.targetVideoBitrate/(self.targetVideoHeight*self.targetVideoWidth*8)))
         print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
         return()
 
