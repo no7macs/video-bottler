@@ -118,13 +118,13 @@ class encodeAndValue:
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> None:
         self.targetAudioBitrate = self.audioBitrate
-        print(str(self.targetAudioBitrate))
         if (self.targetAudioBitrate*self.usedDuration)*1024 > self.upperVideoSize:
-            print("TO MUCH AUDIO")
-            for a,b in enumerate(self.commonAudioValues):
-                if b > self.targetAudioBitrate:
-                    self.targetAudioBitrate = self.commonAudioValues[a-1]
+            for a in self.commonAudioValues[::-1]:
+                if a*self.usedDuration*1024 < self.upperVideoSize:
+                    self.targetAudioBitrate = a
                     break
+        print(self.targetAudioBitrate)
+
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
 
         print(self.videoBitrate)
