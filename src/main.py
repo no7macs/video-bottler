@@ -45,7 +45,7 @@ class encodeAndValue:
             self.ffmpegVidStrNum = 1
             self.ffmpegAudStrNum = 0
         
-        self.upperVideoSize = (5.8*8*1024*1024) #megabits
+        self.upperVideoSize = (6*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -125,9 +125,10 @@ class encodeAndValue:
                     break
         print("--targetAudioBitrate--"+str(self.targetAudioBitrate))
 
+        self.targetVideoBitrate = self.videoBitrate
         # try to make spookie bitrates not rattle everytthing else
         print(self.videoBitrate)
-        if 1 < (self.videoBitrate/(self.videoHeight+self.videoWidth)):
+        if 1.45 < (self.videoBitrate/(self.videoHeight+self.videoWidth)):
             self.videoBitrate = ((self.videoHeight+self.videoWidth)*1)
         print(self.videoBitrate)
 
@@ -139,7 +140,7 @@ class encodeAndValue:
         return()
 
     def setTargetVideoSize(self) -> None:
-        self.targetVideoWidth = max(min(self.videoWidth, (self.videoWidth * self.bitrateDifference)), 280)
+        self.targetVideoWidth = max((self.videoWidth * self.bitrateDifference), 280)
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         #if (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)) > 1:
@@ -162,7 +163,7 @@ class encodeAndValue:
 
     def setAlteredVideoSize(self) -> None:
         print((self.alteredVideoBitrate/self.targetVideoBitrate))
-        self.alteredVideoWidth = self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate)
+        self.alteredVideoWidth = min(self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate), self.videoWidth)
         #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
