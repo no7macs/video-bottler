@@ -127,20 +127,20 @@ class encodeAndValue:
 
         self.targetVideoBitrate = self.videoBitrate
         # try to make spookie bitrates not rattle everytthing else
-        print(self.videoBitrate)
-        if 1.45 < (self.videoBitrate/(self.videoHeight+self.videoWidth)):
-            self.videoBitrate = ((self.videoHeight+self.videoWidth)*1)
-        print(self.videoBitrate)
+        print(self.targetVideoBitrate)
+        if 1.45 < (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)):
+            self.targetVideoBitrate = ((self.videoHeight+self.videoWidth)*1.45)
+        print(self.targetVideoBitrate)
 
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
-        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.videoBitrate else self.videoBitrate
+        self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.targetVideoBitrate else self.targetVideoBitrate
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
         self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return()
 
     def setTargetVideoSize(self) -> None:
-        self.targetVideoWidth = max((self.videoWidth * self.bitrateDifference), 280)
+        self.targetVideoWidth = (self.videoWidth * self.bitrateDifference) + 280
         self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
         #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
         #if (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)) > 1:
@@ -272,31 +272,29 @@ class encodeAndValue:
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
         newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        
+        self.starterEncodeInfo = ["ffmpeg", "-y", "-loglevel", "error", "-i", self.file]
+        self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
+                                "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
+                                "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
+                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
+                                "-threads", "0", "-row-mt", "1"]
+        self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
+
         self.encodeStage = 1
-        self.videoPass1 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
-                                    "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
-                                    "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
-                                    "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                    "-threads", "0", "-row-mt", "1", "-progress", "pipe:1",
-                                    "-pass", "1", "-an", "-f", "null", "NUL"], 
-                                    stdout=subprocess.PIPE,
-                                    stderr = subprocess.STDOUT)
+        self.videoPass1 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+[
+                                            "-pass", "1", "-progress", "pipe:1", "-an", "-f", "null", "NUL"], 
+                                            stdout=subprocess.PIPE,
+                                            stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
-        self.videoPass2 = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", self.file, "-b:v", f"{self.alteredVideoBitrate}k",
-                                    "-c:v", self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k",
-                                    "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                    "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
-                                    "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
-                                    "-threads", "0", "-row-mt", "1",
-                                    "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}",
-                                    "-c:a", self.audioCodec, "-frame_duration", "20", "-pass", "2",
-                                    "-b:a", f"{self.alteredAudioBitrate}k", "-progress", "pipe:1",
-                                    f"{newfile}"], 
-                                    stdout=subprocess.PIPE,
-                                    stderr = subprocess.STDOUT)
+        self.videoPass2 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+self.audioEncodeInfo+[
+                                            "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", "-pass", "2", "-progress", "pipe:1",
+                                            f"{newfile}"], 
+                                            stdout=subprocess.PIPE,
+                                            stderr = subprocess.STDOUT)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
         #os.remove(self.file)
@@ -436,7 +434,7 @@ class timeChangeEntries(Frame):
 
     def changeTime(self, *args):
         print(args)
-        if not self.startTimeStringVar.get() == '' and not self.endTimeStringVar == '':
+        if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == ''):
             valueTings.setUsedTime(float(self.startTimeStringVar.get()), float(self.endTimeStringVar.get()))
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
