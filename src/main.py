@@ -166,7 +166,7 @@ class encodeAndValue:
         self.audioUsagePrecentage = precentage
         if not self.audioUsagePrecentage == -1:
             #whole numbers (too lazy to do math properly
-            self.alteredAudioBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)*self.audioUsagePrecentage)
+            self.alteredAudioBitrate = int(float(self.targetAudioBitrate+self.targetVideoBitrate)*float(self.audioUsagePrecentage))
             self.alteredVideoBitrate = int((self.targetAudioBitrate+self.targetVideoBitrate)-float(self.alteredAudioBitrate))
             #print("--alteredAudioBitrate--"+str(self.alteredAudioBitrate))
             #print("--alteredVideoBitrate--"+str(self.alteredVideoBitrate))
@@ -453,13 +453,7 @@ class timeChangeEntries(Frame):
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
-            self.master.videoaudioBitrateSlider.bitrateRatioSliderUpdate(valueTings.getAudioUsagePrecentage()) #namespace is a lie
-
-    #def toggleDefaultUsage(self):
-    #    if self.defaultTimeVar.get() == 1:
-    #        pass
-    #    elif self.defaultTimeVar.get() == 0:
-    #        pass
+            self.master.videoaudioBitrateSlider.setDefaults() #namespace is a lie
 
 
 # needs to be redone to use ONLY altered variables and readjust on time change
@@ -484,22 +478,26 @@ class bitrateSlider(Frame):
         # no it does not snap properly and gives wack numbers
         # no I will not fix it right now
         if self.snapToCommonAudio == True:
-            self.snapedRatio = min([a/(self.targetAudioBitrate+self.targetVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
+            self.snapedRatio = min([a/(self.alteredAudioBitrate+self.alteredVideoBitrate) for a in [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]],key=lambda x:abs(x-float(bitrateRatio)))
             self.bitrateRatioSlider.set(self.snapedRatio)
+            bitrateRatio = self.bitrateRatioSlider.get()
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
+        valueTings.setAlteredAudioVideoBitrate(bitrateRatio)
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
-        valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
         #self._job = self.after(1000, self.bitrateRatioSliderUpdate(bitrateRatio))
 
 
     def setDefaults(self) -> None:
-        self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetAudioVideoBitrate()
-        self.audioBitrateLabel["text"] = str(int(self.targetAudioBitrate))+"kb/s"
-        self.videoBitrateLabel["text"] = str(int(self.targetVideoBitrate))+"kb/s"
-        self.audioUsagePrecentage = self.targetAudioBitrate/(self.targetAudioBitrate+self.targetVideoBitrate)
+        valueTings.setAlteredAudioVideoBitrate(-1)
+        self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
+        #self.targetAudioBitrate, self.targetVideoBitrate = valueTings.getTargetAudioVideoBitrate()
+        self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
+        self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
+        self.audioUsagePrecentage = self.alteredAudioBitrate/(self.alteredAudioBitrate+self.alteredVideoBitrate)
+        valueTings.setAlteredAudioVideoBitrate(self.audioUsagePrecentage)
         self.bitrateRatioSlider.set(self.audioUsagePrecentage)
 
     def snapToCommonAudioValues(self, state:bool) -> None:
