@@ -110,10 +110,24 @@ class encodeAndValue:
         return()
 
     def setUsedTime(self, start, end) -> None:
-        self.usedStartTime = start if start >= 0 else 0
-        self.usedEndTime = end if end < self.endTime else self.endTime
+        if start >= 0 :
+            if start < end:
+                self.usedStartTime = start
+            else:
+                self.usedStartTime = end-1
+        else:
+            self.usedStartTime = 0
+        if end <= self.endTime:
+            if end > start:
+                self.usedEndTime = end
+            else:
+                self.usedEndTime = start+1
+        else:
+            self.usedEndTime = self.endTime
         self.usedDuration = float(self.usedEndTime-self.usedStartTime)
-        print("--usedDuration--"+str(self.usedDuration))
+        #print("--usedStartTime--"+str(self.usedStartTime))
+        #print("--usedEndTime--"+str(self.usedEndTime))
+        #print("--usedDuration--"+str(self.usedDuration))
 
     #this one NEEDS to be changed (its very cringe)
     def setTargetAudioVideoBitrate(self) -> None:
@@ -474,8 +488,8 @@ class bitrateSlider(Frame):
             self.bitrateRatioSlider.set(self.snapedRatio)
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
+        valueTings.setAlteredAudioVideoBitrate(self.bitrateRatioSlider.get())
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
         #self._job = self.after(1000, self.bitrateRatioSliderUpdate(bitrateRatio))
