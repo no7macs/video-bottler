@@ -110,20 +110,8 @@ class encodeAndValue:
         return()
 
     def setUsedTime(self, start, end) -> None:
-        if start >= 0 :
-            if start < end:
-                self.usedStartTime = start
-            else:
-                self.usedStartTime = end-1
-        else:
-            self.usedStartTime = 0
-        if end <= self.endTime:
-            if end > start:
-                self.usedEndTime = end
-            else:
-                self.usedEndTime = start+1
-        else:
-            self.usedEndTime = self.endTime
+        self.usedStartTime = min(max(start, self.startTime), end+1)
+        self.usedEndTime = max(min(end, self.endTime), start+1, self.startTime)
         self.usedDuration = float(self.usedEndTime-self.usedStartTime)
         #print("--usedStartTime--"+str(self.usedStartTime))
         #print("--usedEndTime--"+str(self.usedEndTime))
@@ -442,7 +430,9 @@ class timeChangeEntries(Frame):
         self.endTimeLabel.grid(column=2, row=0)
         self.endTimeEntry = Entry(self, textvariable=self.endTimeStringVar)
         self.endTimeEntry.grid(column=3, row=0)
-        self.defaultTimeVar = IntVar()
+        self.startTimeEntry.bind("<FocusOut>", self.defocusInputs)
+        self.endTimeEntry.bind("<FocusOut>", self.defocusInputs)
+        #self.defaultTimeVar = IntVar()
         #self.useDefaultCheckBox = Checkbutton(self, text="Use default", variable=self.defaultTimeVar, onvalue=1, offvalue=0, command=self.toggleDefaultUsage)
         #self.useDefaultCheckBox.grid(column=4, row=0)
 
@@ -455,6 +445,12 @@ class timeChangeEntries(Frame):
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
             self.master.videoaudioBitrateSlider.setDefaults() #namespace is a lie
 
+    def defocusInputs(self, *args):
+        self.changeTime()
+        self.startTimeEntry.delete(0, END)
+        self.startTimeEntry.insert(0, valueTings.getUsedTime()[0])
+        self.endTimeEntry.delete(0, END)
+        self.endTimeEntry.insert(0, valueTings.getUsedTime()[1])
 
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
@@ -508,7 +504,6 @@ class mainWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
-
         self.videoPhaseStatFrame = Frame(self)
         self.videoPhaseStatFrame.grid(row=0, column=0, sticky=W)
 
@@ -528,7 +523,16 @@ class mainWindow(Tk):
         self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode, width=25)
         self.encodeButton.grid(row=0, column=0)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
+        self.bind_all("<Button-1>", lambda event: (self.tk.call("focus", self) if not event.widget.winfo_class() == 'Entry' else event.widget.focus_set()))
         self.mainloop()
+
+    # maybe later but the one liner works now
+    #def chFocus(self, event):
+    #    if not event.widget.winfo_class() == 'Entry':
+    #        self.tk.call("focus", self)
+    #    else: 
+    #        event.widget.focus_set()
+    #        event.widget.config(highlightthickness = 0)
 
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
