@@ -526,14 +526,6 @@ class mainWindow(Tk):
         self.bind_all("<Button-1>", lambda event: (self.tk.call("focus", self) if not event.widget.winfo_class() == 'Entry' else event.widget.focus_set()))
         self.mainloop()
 
-    # maybe later but the one liner works now
-    #def chFocus(self, event):
-    #    if not event.widget.winfo_class() == 'Entry':
-    #        self.tk.call("focus", self)
-    #    else: 
-    #        event.widget.focus_set()
-    #        event.widget.config(highlightthickness = 0)
-
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
         self.destroy()
