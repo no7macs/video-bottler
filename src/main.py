@@ -412,9 +412,38 @@ class selectFileWindow(TkinterDnD.Tk):
         self.fileSelectEverntLoop()
 
 
+class timeEntry(Frame):
+    def __init__(self, textvariable, *args, **kwargs):
+        Frame.__init__(self, *args, **kwargs)
+        self.textVariable = textvariable
+        self.hourVar = StringVar()
+        self.minVar = StringVar()
+        self.secVar = StringVar()
+        self.millisecVar = StringVar()
+        self.hourEntry = Entry(self, textvariable=self.hourVar, border=0)
+        self.hourEntry.grid(column=0, row=0)
+        Label(self, text=":").grid(column=1, row=0)
+        self.minEntry = Entry(self, textvariable=self.minVar, border=0)
+        self.minEntry.grid(column=2, row=0)
+        Label(self, text=":").grid(column=3, row=0)
+        self.secEntry = Entry(self, textvariable=self.secVar, border=0)
+        self.secEntry.grid(column=4, row=0)
+        self.secVar.trace_add("write", self.secCheck)
+
+    def secCheck(self, *args):
+        if int(self.secVar.get()) >= 60:
+            pass
+    def set(self, time) -> None:
+        return()
+
+    def get(self) -> int:
+        return()
+
+
 class timeChangeEntries(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
+        timeEntry(self).grid(column=21,row=2)
         self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
         self.startTimeStringVar = StringVar()
         self.endTimeStringVar = StringVar()
