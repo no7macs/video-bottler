@@ -1,3 +1,5 @@
+
+#  standard library imports
 import subprocess
 import sys
 import os
@@ -5,17 +7,18 @@ import time
 import json
 import shutil
 import tempfile
-import yt_dlp
-import tkinter
-import keyboard
-import tkinter.ttk as ttk
-from tkinter.filedialog import *
+from threading import Thread
+from datetime import datetime
 from typing import Optional, Tuple, Union
 from contextlib import contextmanager
 from tkinter import *
+from tkinter.ttk import Progressbar
+from tkinter import filedialog
+
+#  third party imports
+import yt_dlp
+import keyboard
 from tkinterdnd2 import DND_FILES, TkinterDnD
-from threading import Thread
-from datetime import datetime
 
 @contextmanager
 def tempFileName() -> str:
@@ -273,7 +276,7 @@ class encodeAndValue:
         valueTings.setAlteredVideoSize()
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
-        newfile = tkinter.filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         
         self.starterEncodeInfo = ["ffmpeg", "-y", "-loglevel", "error", "-i", self.file]
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
@@ -399,8 +402,8 @@ class selectFileWindow(TkinterDnD.Tk):
         self.downloadButton.grid(row=2, column=0)
 
     def browseForFiles(self):
-        self.file = tkinter.filedialog.askopenfilename(initialdir = "/", title = "Select a File",
-                                          filetypes = (("Video",["*.webm*","*.mp4*","*.mov*","*.m4a*"]), ("all files", "*.*")))
+        self.file = filedialog.askopenfilename(initialdir = "/", title = "Select a File",
+                                                filetypes = (("Video",["*.webm*","*.mp4*","*.mov*","*.m4a*"]), ("all files", "*.*")))
         self.fileSelectEverntLoop()
 
     def downloadFromUrl(self):
@@ -590,7 +593,7 @@ class encodeStatusWindow(Tk):
 
         self.encodeStatusMessage = Label(self, text="Status: ")
         self.encodeStatusMessage.pack(anchor=W)
-        self.encodeProgressBar = ttk.Progressbar(self, orient=HORIZONTAL, length=500, mode='determinate')
+        self.encodeProgressBar = Progressbar(self, orient=HORIZONTAL, length=500, mode='determinate')
         self.encodeProgressBar.pack(anchor=W)
         self.actionButtonsFrame = Frame(self)
         self.actionButtonsFrame.pack(anchor=W)

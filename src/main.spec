@@ -8,7 +8,7 @@ ffmpeg = "A:\\Documents\\ffmpeg\\ffmpeg-6.0-full_build\\bin\\ffmpeg.exe"
 ffprobe = "A:\\Documents\\ffmpeg\\ffmpeg-6.0-full_build\\bin\\ffprobe.exe"
 
 a = Analysis(
-    ['./main.py'],
+    ['main.py'],
     pathex=[],
     binaries=[(f"{tkinterdnd2.__path__[0]}", "tkinterdnd2"),
                 (MediaInfo, "."),
