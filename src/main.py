@@ -372,7 +372,7 @@ class selectFileWindow(TkinterDnD.Tk):
             valueTings.setFile(self.file)
             self.after_cancel(self._job)
             self._job = None
-            self.destroy()
+            self.destroy() # push the x button in the encode progress window and it fucking dies
             valueTings.setDefaults()
             mainWindow()
         self._job = self.after(1, self.fileSelectEverntLoop)
@@ -446,7 +446,7 @@ class timeEntry(Frame):
 class timeChangeEntries(Frame):
     def __init__(self, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
-        timeEntry(self).grid(column=21,row=2)
+        #timeEntry(self).grid(column=21,row=2)
         self.usedStartTime, self.usedEndTime = valueTings.getUsedTime()
         self.startTimeStringVar = StringVar()
         self.endTimeStringVar = StringVar()
@@ -483,6 +483,7 @@ class timeChangeEntries(Frame):
         self.startTimeEntry.insert(0, valueTings.getUsedTime()[0])
         self.endTimeEntry.delete(0, END)
         self.endTimeEntry.insert(0, valueTings.getUsedTime()[1])
+
 
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
@@ -600,6 +601,7 @@ class encodeStatusWindow(Tk):
         self.cancelButton = Button(self, text="Cancel", command=valueTings.haltEncode)
         self.doneButton = Button(self, text="Done", command=self.done)
         self.exitButton = Button(self, text="Exit", command=self.exit)
+        self.protocol("WM_DELETE_WINDOW", self.done)
         self._job = self.after(1, self.update)
         self.mainloop()
 
