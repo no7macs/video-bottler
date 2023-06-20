@@ -400,6 +400,7 @@ class selectFileWindow(TkinterDnD.Tk):
         self.downloadStatusLabel = Label(self.downloadFileFrame)
         self.downloadButton = Button(self.downloadFileFrame, text="Download", command=self.downloadFromUrl)
         self.downloadButton.grid(row=2, column=0)
+        self.tk.call("focus", self.downloadEntry)
 
     def browseForFiles(self):
         self.file = filedialog.askopenfilename(initialdir = "/", title = "Select a File",
