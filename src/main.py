@@ -34,13 +34,15 @@ class encodeAndValue:
     # this exists since everything needs the file but the file is set after the class is invoked in the select file window making it so everything has to run afterwards
     # for the love of god please find a better solution
     def setDefaults(self) -> None:
-        self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", 
+        self.ffmpegInfoOut = json.loads(subprocess.run(["ffprobe.exe", "-v", "error", "-print_format", "json", 
                                         "-show_format", "-show_streams", self.file],
                                         stdout = subprocess.PIPE,
-                                        stderr = subprocess.STDOUT).stdout)
-        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo", "--Output=JSON", self.file], 
+                                        stderr = subprocess.STDOUT,
+                                        shell = True).stdout)
+        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo.exe", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
-                                        stderr = subprocess.STDOUT).stdout),)  
+                                        stderr = subprocess.STDOUT,
+                                        shell = True).stdout),)  
         if self.ffmpegInfoOut["streams"][0]["codec_type"] == 'video':
             self.ffmpegVidStrNum = 0
             self.ffmpegAudStrNum = 1
@@ -278,7 +280,7 @@ class encodeAndValue:
 
         newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         
-        self.starterEncodeInfo = ["ffmpeg", "-y", "-loglevel", "error", "-i", self.file]
+        self.starterEncodeInfo = ["ffmpeg.exe", "-y", "-loglevel", "error", "-i", self.file]
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
                                 "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                 "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
@@ -291,7 +293,8 @@ class encodeAndValue:
         self.videoPass1 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+[
                                             "-pass", "1", "-progress", "pipe:1", "-an", "-f", "null", "NUL"], 
                                             stdout=subprocess.PIPE,
-                                            stderr = subprocess.STDOUT)
+                                            stderr = subprocess.STDOUT,
+                                            shell = True)
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
@@ -299,7 +302,8 @@ class encodeAndValue:
                                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", "-pass", "2", "-progress", "pipe:1",
                                             f"{newfile}"], 
                                             stdout=subprocess.PIPE,
-                                            stderr = subprocess.STDOUT)
+                                            stderr = subprocess.STDOUT,
+                                            shell = True)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
         #os.remove(self.file)
@@ -372,7 +376,7 @@ class selectFileWindow(TkinterDnD.Tk):
             valueTings.setFile(self.file)
             self.after_cancel(self._job)
             self._job = None
-            self.destroy() # push the x button in the encode progress window and it fucking dies
+            self.destroy() # push the x button and it dies
             valueTings.setDefaults()
             mainWindow()
         self._job = self.after(1, self.fileSelectEverntLoop)
@@ -657,9 +661,13 @@ def main():
 
 if __name__ == "__main__":
     with tempFileName() as tempFoldername:
-        sys.path.append(getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))) #pyinstaller tempdir
+        meipass = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        sys.path.append(meipass) #pyinstaller tempdir
+        os.chdir(meipass)
 
+        print(meipass)
         valueTings = encodeAndValue()
+        print(sys.path)
         # file select
         print(sys.argv)
         if len(sys.argv) >= 2:
