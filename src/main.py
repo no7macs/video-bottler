@@ -250,22 +250,26 @@ class encodeAndValue:
                 break
             # should be rewriten later to not be all if else (yanderedev level garbage)
             progressText = progressText.decode("utf-8").strip().replace(" ", "")
-            if progressText.startswith("frame="):
-                self.queue[0] = int(progressText.partition('=')[-1])
-            elif progressText.startswith("fps="):
-                self.taskStats["fps"] = float(progressText.partition('=')[-1])
-            elif progressText.startswith("bitrate="):
-                self.taskStats["bitrate"] =  progressText.partition('=')[-1]
-            elif progressText.startswith("total_size=") and (not "N/A" in progressText):
-                self.taskStats["totalSize"] = int(progressText.partition('=')[-1])
-            elif progressText.startswith("out_time_ms="):
-                self.taskStats["outTime"] = int(progressText.partition('=')[-1])
-            elif progressText.startswith("dup_frames="):
-                self.taskStats["dumpedFrames"] = int(progressText.partition('=')[-1])
-            elif progressText.startswith("drop_frames="):
-                self.taskStats["dropedFrames"] = int(progressText.partition('=')[-1])
-            elif progressText.startswith("speed=") and (not "N/A" in progressText):
-                self.taskStats["speed"] = progressText.partition('=')[-1]
+            try:
+                if progressText.startswith("frame="):
+                    self.queue[0] = int(progressText.partition('=')[-1])
+                elif progressText.startswith("fps="):
+                    self.taskStats["fps"] = float(progressText.partition('=')[-1])
+                elif progressText.startswith("bitrate="):
+                    self.taskStats["bitrate"] =  progressText.partition('=')[-1]
+                elif progressText.startswith("total_size=") and (not "N/A" in progressText):
+                    self.taskStats["totalSize"] = int(progressText.partition('=')[-1])
+                elif progressText.startswith("out_time_ms="):
+                    self.taskStats["outTime"] = int(progressText.partition('=')[-1])
+                elif progressText.startswith("dup_frames="):
+                    self.taskStats["dumpedFrames"] = int(progressText.partition('=')[-1])
+                elif progressText.startswith("drop_frames="):
+                    self.taskStats["dropedFrames"] = int(progressText.partition('=')[-1])
+                elif progressText.startswith("speed=") and (not "N/A" in progressText):
+                    self.taskStats["speed"] = progressText.partition('=')[-1]
+            except ValueError as err:
+                print(err)
+                print("THREW ENCODE STATS FROM MALFORMED OUTPUT")
 
     def encode(self):
         self.haltEncodeFlag = False
@@ -374,10 +378,10 @@ class selectFileWindow(TkinterDnD.Tk):
             self.downloadFromUrl()
         if not self.file == "" and os.path.exists(self.file):
             valueTings.setFile(self.file)
+            valueTings.setDefaults()
+            self.destroy()
             self.after_cancel(self._job)
             self._job = None
-            self.destroy() # push the x button and it dies
-            valueTings.setDefaults()
             mainWindow()
         self._job = self.after(1, self.fileSelectEverntLoop)
 
@@ -626,7 +630,7 @@ class encodeStatusWindow(Tk):
         self.fpsLabel["text"] = "fps: "+str(self.taskStatus["fps"])
         self.bitrateLabel["text"] = "bitrate: "+self.taskStatus["bitrate"]
         self.totalSizeLabel["text"] = "file size: "+str(round(self.taskStatus["totalSize"]/1024/1024,3))+"mb"
-        self.outTimeLabel["text"] = "video length: "+str(self.taskStatus["outTime"]/1000/1000)+"sec"
+        self.outTimeLabel["text"] = "video length: "+str(round(self.taskStatus["outTime"]/1000/1000,2))+"sec"
         #self.dumpedFramesLabel["text"] = "dumped frames: "+str(self.taskStatus["dumpedFrames"])
         #self.dropedFramesLabel["text"] = "droped frames: "+str(self.taskStatus["dropedFrames"])
         self.speedLabel["text"] = "speed: "+self.taskStatus["speed"]
