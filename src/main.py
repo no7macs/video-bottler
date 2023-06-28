@@ -303,7 +303,9 @@ class encodeAndValue:
 
         self.encodeStage = 2
         self.videoPass2 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+self.audioEncodeInfo+[
-                                            "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", "-pass", "2", "-progress", "pipe:1",
+                                            "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", 
+                                            "-metadata:g", f"encoding_tool=no7macs video-bottler",
+                                            "-pass", "2", "-progress", "pipe:1",
                                             f"{newfile}"], 
                                             stdout=subprocess.PIPE,
                                             stderr = subprocess.STDOUT,
