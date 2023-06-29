@@ -352,7 +352,8 @@ class ytdlpDownloader:
         ydl_opts = {
             'outtmpl':f"""{self.tempFolder}/%(title)s-%(id)s.%(ext)s""",
             'cookiefile':'./cookies.txt',
-            'logger': self.MyLogger()
+            'logger': self.MyLogger(),
+            'noplaylist': True
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download(self.url)
