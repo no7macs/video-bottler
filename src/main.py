@@ -319,36 +319,27 @@ class ytdlpDownloader:
     def __init__(self, url, folder):
         self.tempFolder = folder
         self.url = url
+        self.debug = ""
+        self.info = ""
+        self.warning = ""
+        self.err = ""
 
     class MyLogger:
         def debug(self, msg):
-            # For compatibility with youtube-dl, both debug and info are passed into debug
-            # You can distinguish them by the prefix '[debug] '
-            if msg.startswith('[debug] '):
+            if msg.startswith('[debug] '): # debug
                 pass
-            else:
+            else: # info 
                 self.info(msg)
         def info(self, msg):
-            print(msg)
+            #print(msg)
+            pass
         def warning(self, msg):
             pass
         def error(self, msg):
+            self.err = msg
             print(msg)
 
-    def getFormat(self, ctx):
-        formats = ctx.get("formats")[::-1]
-        bestVideo = next(a for a in formats if a['vcodec'] != "none" and a["acodec"] == 'none')
-        audioExt = {"mp4": "m4a", "webm": "webm"}[bestVideo['ext']]
-        bestAudio = next(a for a in formats if (a["acodec"] != "none" and a["vcodec"] == "none" and a["ext"] == audioExt))
-        yield {
-            'format_id': f'{bestVideo["format_id"]}+{bestAudio["format_id"]}',
-            'ext': bestVideo['ext'],
-            'requested_formats': [bestVideo, bestAudio],
-            # Must be + separated list of protocols
-            'protocol': f'{bestVideo["protocol"]}+{bestAudio["protocol"]}'
-        }
-
-    def download(self):
+    def ytdlpHandler(self):
         ydl_opts = {
             'outtmpl':f"""{self.tempFolder}/%(title)s-%(id)s.%(ext)s""",
             'cookiefile':'./cookies.txt',
@@ -357,6 +348,9 @@ class ytdlpDownloader:
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download(self.url)
+
+    def download(self):
+        self.ytdlpHandler()
         return(os.path.join(self.tempFolder, os.listdir(self.tempFolder)[0]))
 
 
