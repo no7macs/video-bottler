@@ -288,7 +288,7 @@ class encodeAndValue:
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
                                 "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                 "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", f"-aspect={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1"]
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
