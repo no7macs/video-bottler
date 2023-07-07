@@ -13,7 +13,7 @@ from typing import Optional, Tuple, Union
 from contextlib import contextmanager
 from tkinter import *
 from tkinter.ttk import Progressbar
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 #  third party imports
 import yt_dlp
@@ -31,6 +31,8 @@ class encodeAndValue:
     def __init__(self) -> None:
         self.file = ""
         self.audioMute = False
+        self.outFile = ""
+        self.fileEnding = "webm"
 
     # this exists since everything needs the file but the file is set after the class is invoked in the select file window making it so everything has to run afterwards
     # for the love of god please find a better solution
@@ -76,6 +78,7 @@ class encodeAndValue:
     def setFile(self, file):
         self.file = file
         print(self.file)
+        self.outFile = self.file+"-1" #also sets out file just in case
 
     def setSourceTime(self):
         self.startTime = float(self.ffmpegInfoOut["format"]["start_time"]) # sometimes things out a slightly higher number then 0
@@ -195,6 +198,14 @@ class encodeAndValue:
         self.audioMute = mute
         return()
 
+    def setOutFile(self, file:str) -> None:
+        self.outFile = file
+        return()
+
+    def setOutFileEndging(self, ending:str) -> None:
+        self.fileEnding = ending
+        return()
+
     def getFile(self) -> str:
         return(self.file)
 
@@ -227,6 +238,12 @@ class encodeAndValue:
 
     def getNumberOfFrames(self) -> float:
         return(self.frameCount)
+
+    def getOutFile(self) -> str:
+        return(self.outFile)
+
+    def getOutFileEndging(self) -> str:
+        return(self.fileEnding)
 
     #  --EVERYTHING FROM THIS POINT FORWARD IS FOR ENCODING ONLY--
     def getEncodeStatus(self) -> float:
@@ -288,17 +305,16 @@ class encodeAndValue:
         self.encodeStage = 0
         self.videoEncoder = "libvpx-vp9"
         self.audioCodec = "libopus"
-        self.fileEnding = "webm"
         self.taskStats = {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         #valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
-        newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
+        #newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
         
         self.starterEncodeInfo = ["ffmpeg.exe", "-y", "-loglevel", "error", "-i", self.file]
-        self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
-                                "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
+        self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k", "-pix_fmt", "yuv420p",
+                                "-c:v",  self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                 "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
                                 "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
@@ -306,8 +322,8 @@ class encodeAndValue:
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
         if self.audioMute == True:
             self.audioEncodeInfo = ["-an"] # I guess theres a way to do this better with -map but I can't be bothered for the time
-        elif "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source track if same bitrate and codec
-            self.audioEncodeInfo = ["-c:a", "copy", "-metadata:s:a:0", f"coppied_from_source=yes"] #tags as coppied for no reason
+        elif "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source audio track if same bitrate and codec
+            self.audioEncodeInfo = ["-c:a", "copy", "-metadata:s:a:0", f"coppied_from_source=yes"] #tags if coppied for no reason
 
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+[
@@ -319,18 +335,16 @@ class encodeAndValue:
 
         self.encodeStage = 2
         self.stage2EncodeFlags = self.starterEncodeInfo + self.videoEncodeInfo + self.audioEncodeInfo
-        print(self.stage2EncodeFlags)
         self.videoPass2 = subprocess.Popen(self.stage2EncodeFlags+[
                                             "-map_metadata", "0", "-metadata:s:v:0", f"BPS={self.alteredVideoBitrate}", # meaningless BPS tag that **might** work with matroska
                                             "-metadata:g", f"encoding_tool=no7macs video-bottler",
                                             "-pass", "2", "-progress", "pipe:1",
-                                            f"{newfile}"], 
+                                            f"{self.outFile}"], 
                                             stdout=subprocess.PIPE,
                                             stderr = subprocess.STDOUT,
                                             shell = True)
         self.encodeHandler(self.videoPass2)
         self.encodeStage = 3
-        #os.remove(self.file)
 
 
 class ytdlpDownloader:
@@ -497,7 +511,7 @@ class timeChangeEntries(Frame):
 
     def changeTime(self, *args):
         print(args)
-        if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == ''):
+        if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == '') and self.startTimeStringVar.get().isdigit() and self.endTimeStringVar.get().isdigit():
             valueTings.setUsedTime(float(self.startTimeStringVar.get()), float(self.endTimeStringVar.get()))
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
@@ -516,6 +530,22 @@ class timeChangeEntries(Frame):
     def resetToDefault(self):
         self.startTimeStringVar.set(self.usedStartTime)
         self.endTimeStringVar.set(self.usedEndTime)
+        
+
+class resolutionChangeEntries(Frame):
+    def __init__(self, *args, **kwargs):
+        Frame.__init__(self, *args, **kwargs)
+        self.customResolutionCheckbuttonLabel = Label(self, text="Custom Resolution")
+        self.customResolutionCheckbuttonLabel.grid(row=0, column=0)
+        self.customResolution = IntVar()
+        self.customSizeCheckbox = Checkbutton(self, variable=self.customResolution, onvalue=1, offvalue=0, command=self.customAudioToggle)
+        self.customSizeCheckbox.grid(row=0, column=1)
+
+
+
+
+    def customAudioToggle(self):
+        pass # this function will turn custom resolutions on and off
 
 
 # needs to be redone to use ONLY altered variables and readjust on time change
@@ -582,17 +612,19 @@ class mainWindow(Tk):
 
         self.changeDurationFrame = timeChangeEntries(self)
         self.changeDurationFrame.grid(row=1, column=0, sticky=W)
+        self.resolutionChangeFrame = resolutionChangeEntries(self)
+        self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
-        self.snapToAudioValuesBox.grid(row=2, column=0, sticky=W)
+        self.snapToAudioValuesBox.grid(row=3, column=0, sticky=W)
         self.videoaudioBitrateSlider = bitrateSlider(self)
-        self.videoaudioBitrateSlider.grid(row=3, column=0)
+        self.videoaudioBitrateSlider.grid(row=4, column=0)
         self.sliderResetDefaultsButton = Button(self, text = "Reset", command=self.resetAll)
-        self.sliderResetDefaultsButton.grid(row=4, column=0, sticky=W)
+        self.sliderResetDefaultsButton.grid(row=5, column=0, sticky=W)
         #self.statusLabel = Label(self, text="")
         #self.statusLabel.pack(anchor=W)
         self.buttonFrame = Frame(self)
-        self.buttonFrame.grid(row=5, column=0, sticky=E)
+        self.buttonFrame.grid(row=6, column=0, sticky=E)
         self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode, width=25)
         self.encodeButton.grid(row=0, column=0)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
@@ -619,7 +651,6 @@ class encodeStatusWindow(Tk):
         self.title("Video Bottler")
         self.encodeStatFrame = Frame(self)
         self.encodeStatFrame.pack(anchor=W)
-        valueTings.startEncode()
 
         self.fpsLabel = Label(self.encodeStatFrame, text="")
         self.fpsLabel.pack(anchor=W)
@@ -646,11 +677,21 @@ class encodeStatusWindow(Tk):
         self.doneButton = Button(self, text="Done", command=self.done)
         self.exitButton = Button(self, text="Exit", command=self.exit)
         self.protocol("WM_DELETE_WINDOW", self.done)
+
+        self.outFile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(valueTings.getFile()), initialfile=f"{os.path.splitext(os.path.basename(valueTings.getFile()))[0]}-1.{valueTings.getOutFileEndging()}", filetypes=[("webm","webm")], defaultextension=".webm")
+        if not self.outFile:
+            self.done()
+        elif self.outFile:
+            valueTings.startEncode()
+
         self._job = self.after(1, self.update)
         self.mainloop()
 
     def done(self):
-        self.after_cancel(self._job)
+        try:
+            self.after_cancel(self._job)
+        except AttributeError:
+            print("no jobs to cancel")
         self._job = None
         self.destroy()
         mainWindow()
