@@ -198,8 +198,8 @@ class encodeAndValue:
         self.audioMute = mute
         return()
 
-    def setOutFile(self, file:str) -> None:
-        self.outFile = file
+    def setOutFile(self, outFile:str) -> None:
+        self.outFile = outFile
         return()
 
     def setOutFileEndging(self, ending:str) -> None:
@@ -689,6 +689,7 @@ class encodeStatusWindow(Tk):
         if not self.outFile:
             self.done()
         elif self.outFile:
+            valueTings.setOutFile(self.outFile)
             valueTings.startEncode()
 
         self._job = self.after(1, self.update)
