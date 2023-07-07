@@ -540,9 +540,16 @@ class resolutionChangeEntries(Frame):
         self.customResolution = IntVar()
         self.customSizeCheckbox = Checkbutton(self, variable=self.customResolution, onvalue=1, offvalue=0, command=self.customAudioToggle)
         self.customSizeCheckbox.grid(row=0, column=1)
-
-
-
+        self.widthStringVar = StringVar()
+        self.heightStringVar = StringVar()
+        self.widthEntryLabel = Label(self, text="Width:")
+        self.widthEntryLabel.grid(row=0, column=2)
+        self.widthEntry = Entry(self, textvariable=self.widthStringVar)
+        self.widthEntry.grid(row=0, column=3)
+        self.heightEntryLabel = Label(self, text="Height:")
+        self.heightEntryLabel.grid(row=0, column=4)
+        self.heightEntry = Entry(self, textvariable=self.widthStringVar)
+        self.heightEntry.grid(row=0, column=5)
 
     def customAudioToggle(self):
         pass # this function will turn custom resolutions on and off
@@ -612,8 +619,8 @@ class mainWindow(Tk):
 
         self.changeDurationFrame = timeChangeEntries(self)
         self.changeDurationFrame.grid(row=1, column=0, sticky=W)
-        self.resolutionChangeFrame = resolutionChangeEntries(self)
-        self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
+        #self.resolutionChangeFrame = resolutionChangeEntries(self)
+        #self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
         self.snapToAudioValuesBox.grid(row=3, column=0, sticky=W)
