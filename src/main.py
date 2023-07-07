@@ -168,8 +168,8 @@ class encodeAndValue:
             self.alteredVideoBitrate = self.targetVideoBitrate
         return()
 
-    def setAlteredVideoSize(self) -> None:
-        print((self.alteredVideoBitrate/self.targetVideoBitrate))
+    def setAlteredVideoSize(self, videoX= self.targetVideoWidth, videoY= self.targetVideoHeight) -> None:
+        #print((self.alteredVideoBitrate/self.targetVideoBitrate))
         self.alteredVideoWidth = min(self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate), self.videoWidth)
         #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
         #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
@@ -288,7 +288,7 @@ class encodeAndValue:
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k",
                                 "-c:v",  self.videoEncoder,  "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                 "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", f"-aspect={self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1"]
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
@@ -421,6 +421,7 @@ class selectFileWindow(TkinterDnD.Tk):
         self.fileSelectEverntLoop()
 
 
+#  unused but should replace timeChangeEntries later
 class timeEntry(Frame):
     def __init__(self, textvariable, *args, **kwargs):
         Frame.__init__(self, *args, **kwargs)
@@ -481,7 +482,8 @@ class timeChangeEntries(Frame):
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
-            self.master.videoaudioBitrateSlider.setDefaults() #namespace is a lie
+            valueTings.setAlteredVideoSize()
+            self.master.videoaudioBitrateSlider.setDefaults() #  namespace is a lie
 
     def defocusInputs(self, *args):
         self.changeTime()
@@ -490,7 +492,11 @@ class timeChangeEntries(Frame):
         self.endTimeEntry.delete(0, END)
         self.endTimeEntry.insert(0, valueTings.getUsedTime()[1])
 
+    def resetToDefault(self):
+        self.startTimeStringVar.set(self.usedStartTime)
+        self.endTimeStringVar.set(self.usedEndTime)
 
+        
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
@@ -518,7 +524,9 @@ class bitrateSlider(Frame):
             bitrateRatio = self.bitrateRatioSlider.get()
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
+        valueTings.setTargetVideoSize()
         valueTings.setAlteredAudioVideoBitrate(bitrateRatio)
+        valueTings.setAlteredVideoSize()
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
@@ -553,7 +561,7 @@ class mainWindow(Tk):
         self.snapToAudioValuesBox.grid(row=2, column=0, sticky=W)
         self.videoaudioBitrateSlider = bitrateSlider(self)
         self.videoaudioBitrateSlider.grid(row=3, column=0)
-        self.sliderResetDefaultsButton = Button(self, text = "Reset", command=lambda:self.videoaudioBitrateSlider.setDefaults())
+        self.sliderResetDefaultsButton = Button(self, text = "Reset", command=self.resetAll)
         self.sliderResetDefaultsButton.grid(row=4, column=0, sticky=W)
         #self.statusLabel = Label(self, text="")
         #self.statusLabel.pack(anchor=W)
@@ -564,6 +572,9 @@ class mainWindow(Tk):
         self.protocol("WM_DELETE_WINDOW", self.onClose)
         self.bind_all("<Button-1>", lambda event: (self.tk.call("focus", self) if not event.widget.winfo_class() == 'Entry' else event.widget.focus_set()))
         self.mainloop()
+
+    def resetAll(self):
+        self.videoaudioBitrateSlider.setDefaults()
 
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
