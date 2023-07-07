@@ -40,10 +40,10 @@ class encodeAndValue:
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT,
                                         shell = True).stdout)
-        self.mediaInfoOut = json.loads((subprocess.run(["MediaInfo.exe", "--Output=JSON", self.file], 
+        self.mediaInfoOut = json.loads(subprocess.run(["MediaInfo.exe", "--Output=JSON", self.file], 
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT,
-                                        shell = True).stdout),)  
+                                        shell = True).stdout)
         if self.ffmpegInfoOut["streams"][0]["codec_type"] == 'video':
             self.ffmpegVidStrNum = 0
             self.ffmpegAudStrNum = 1
@@ -69,7 +69,8 @@ class encodeAndValue:
         self.setTargetAudioVideoBitrate()
         self.setTargetVideoSize()
         self.setAlteredAudioVideoBitrate(-1)
-        self.setAlteredVideoSize()
+        videoX, videoY = self.getTargetVideoSize()[0:2]
+        self.setAlteredVideoSize(videoX, videoY)
 
     def setFile(self, file):
         self.file = file
@@ -226,9 +227,6 @@ class encodeAndValue:
     def getNumberOfFrames(self) -> float:
         return(self.frameCount)
 
-    def getAudioMuteFlag(self) -> bool:
-        return(self.audioMute)
-
     #  --EVERYTHING FROM THIS POINT FORWARD IS FOR ENCODING ONLY--
     def getEncodeStatus(self) -> float:
         return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
@@ -315,7 +313,7 @@ class encodeAndValue:
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
-        self.stage2EncodeFlags = [self.starterEncodeInfo+self.videoEncodeInfo]
+        self.stage2EncodeFlags = self.starterEncodeInfo+self.videoEncodeInfo
         if self.audioMute == False: self.stage2EncodeFlags += self.audioEncodeInfo
         self.videoPass2 = subprocess.Popen(self.stage2EncodeFlags+[
                                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", 
@@ -497,7 +495,8 @@ class timeChangeEntries(Frame):
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
-            valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
+            videoX, videoY = valueTings.getTargetVideoSize()[0:2]
+            valueTings.setAlteredVideoSize(videoX, videoY)
             self.master.videoaudioBitrateSlider.setDefaults() #  namespace is a lie
 
     def defocusInputs(self, *args):
@@ -541,7 +540,8 @@ class bitrateSlider(Frame):
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
         valueTings.setTargetVideoSize()
         valueTings.setAlteredAudioVideoBitrate(bitrateRatio)
-        valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
+        videoX, videoY = valueTings.getTargetVideoSize()[0:2]
+        valueTings.setAlteredVideoSize(videoX, videoY)
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
