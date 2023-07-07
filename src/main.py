@@ -30,6 +30,7 @@ def tempFileName() -> str:
 class encodeAndValue:
     def __init__(self) -> None:
         self.file = ""
+        self.audioMute = False
 
     # this exists since everything needs the file but the file is set after the class is invoked in the select file window making it so everything has to run afterwards
     # for the love of god please find a better solution
@@ -188,6 +189,10 @@ class encodeAndValue:
                                                             stderr = subprocess.STDOUT).stdout)['streams'][0]['nb_read_packets'])
         return()
 
+    def setAudioMuteFlag(self, mute:bool) -> None:
+        self.audioMute = mute
+        return()
+
     def getFile(self) -> str:
         return(self.file)
 
@@ -221,6 +226,10 @@ class encodeAndValue:
     def getNumberOfFrames(self) -> float:
         return(self.frameCount)
 
+    def getAudioMuteFlag(self) -> bool:
+        return(self.audioMute)
+
+    #  --EVERYTHING FROM THIS POINT FORWARD IS FOR ENCODING ONLY--
     def getEncodeStatus(self) -> float:
         return(self.encodeStage, self.haltEncodeFlag, self.taskStats)
 
@@ -306,7 +315,9 @@ class encodeAndValue:
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
-        self.videoPass2 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+self.audioEncodeInfo+[
+        self.stage2EncodeFlags = [self.starterEncodeInfo+self.videoEncodeInfo]
+        if self.audioMute == False: self.stage2EncodeFlags += self.audioEncodeInfo
+        self.videoPass2 = subprocess.Popen(self.stage2EncodeFlags+[
                                             "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", 
                                             "-metadata:g", f"encoding_tool=no7macs video-bottler",
                                             "-pass", "2", "-progress", "pipe:1",
@@ -534,6 +545,10 @@ class bitrateSlider(Frame):
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
+        if self.alteredAudioBitrate <= 0:
+            valueTings.setAudioMuteFlag(True)
+        elif self.alteredAudioBitrate > 0:
+            valueTings.setAudioMuteFlag(False)
         #self._job = self.after(1000, self.bitrateRatioSliderUpdate(bitrateRatio))
 
 
