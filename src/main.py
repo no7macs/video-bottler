@@ -60,6 +60,7 @@ class encodeAndValue:
         self.videoXYRatio = self.videoWidth/self.videoHeight
         self.targetVideoWidth = float(0)
         self.targetVideoHeight = float(0)
+        self.originalAudioCodec = str(self.ffmpegInfoOut["streams"][self.ffmpegAudStrNum]["codec_name"])
 
         # initialize first couple set of values
         self.setSourceTime()
@@ -303,6 +304,8 @@ class encodeAndValue:
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1"]
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
+        if "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source track if same bitrate and codec
+            self.audioEncodeInfo = ["-c:a", "copy", "-metadata:s:a:0", f"coppied_from_source=yes"] #tags as coppied for no reason
 
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+[
@@ -316,7 +319,7 @@ class encodeAndValue:
         self.stage2EncodeFlags = self.starterEncodeInfo+self.videoEncodeInfo
         if self.audioMute == False: self.stage2EncodeFlags += self.audioEncodeInfo
         self.videoPass2 = subprocess.Popen(self.stage2EncodeFlags+[
-                                            "-map_metadata", "0", "-metadata:s:v:0", f"bit_rate={self.alteredVideoBitrate}", 
+                                            "-map_metadata", "0", "-metadata:s:v:0", f"BPS={self.alteredVideoBitrate}", # meaningless BPS tag that **might** work with matroska
                                             "-metadata:g", f"encoding_tool=no7macs video-bottler",
                                             "-pass", "2", "-progress", "pipe:1",
                                             f"{newfile}"], 
@@ -360,6 +363,8 @@ class ytdlpDownloader:
             'noplaylist': True
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            #  needs to check if it's none and raise some kind of error/ message (should be done after this bits threaded)
+            #  also there are just errors and other things different places throw that should be handled
             ydl.download(self.url)
 
     def download(self):
