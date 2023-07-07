@@ -168,12 +168,16 @@ class encodeAndValue:
             self.alteredVideoBitrate = self.targetVideoBitrate
         return()
 
-    def setAlteredVideoSize(self, videoX= self.targetVideoWidth, videoY= self.targetVideoHeight) -> None:
+    def setAlteredVideoSize(self, videoX:float, videoY:float, maxAtSource:bool=True, maintainOriginalRatio:bool=True) -> None:
         #print((self.alteredVideoBitrate/self.targetVideoBitrate))
-        self.alteredVideoWidth = min(self.targetVideoWidth*(self.alteredVideoBitrate/self.targetVideoBitrate), self.videoWidth)
-        #self.alteredVideoWidth = self.alteredVideoBitrate*1.45
-        #self.alteredVideoWidth = a if (a if (a:=((self.alteredVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
-        self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
+        self.alteredVideoWidth = videoX*(self.alteredVideoBitrate/self.targetVideoBitrate)
+        if maxAtSource == True:
+            self.alteredVideoWidth = min(self.alteredVideoWidth, self.videoWidth)
+
+        if maintainOriginalRatio == True:
+            self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
+        elif maintainOriginalRatio == False:
+            self.alteredVideoHeight = videoY
         return()
 
     def setNumberOfFrames(self) -> None:
@@ -279,7 +283,7 @@ class encodeAndValue:
         self.fileEnding = "webm"
         self.taskStats = {"encodePrecent":0, "fps":0, "bitrate":"", "totalSize":0, "outTime":0, "dumpedFrames":0, "dropedFrames":0, "speed":""}
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
-        valueTings.setAlteredVideoSize()
+        #valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
         newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
@@ -482,7 +486,7 @@ class timeChangeEntries(Frame):
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
-            valueTings.setAlteredVideoSize()
+            valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
             self.master.videoaudioBitrateSlider.setDefaults() #  namespace is a lie
 
     def defocusInputs(self, *args):
@@ -496,7 +500,7 @@ class timeChangeEntries(Frame):
         self.startTimeStringVar.set(self.usedStartTime)
         self.endTimeStringVar.set(self.usedEndTime)
 
-        
+
 # needs to be redone to use ONLY altered variables and readjust on time change
 class bitrateSlider(Frame):
     def __init__(self, *args, **kwargs):
@@ -526,7 +530,7 @@ class bitrateSlider(Frame):
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
         valueTings.setTargetVideoSize()
         valueTings.setAlteredAudioVideoBitrate(bitrateRatio)
-        valueTings.setAlteredVideoSize()
+        valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
@@ -575,6 +579,7 @@ class mainWindow(Tk):
 
     def resetAll(self):
         self.videoaudioBitrateSlider.setDefaults()
+        self.changeDurationFrame.resetToDefault()
 
     def onClose(self):
         #if tkinter.messagebox.askokcancel("Exit", "Do you want to quit?"):
