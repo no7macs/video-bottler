@@ -304,7 +304,9 @@ class encodeAndValue:
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1"]
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
-        if "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source track if same bitrate and codec
+        if self.audioMute == True:
+            self.audioEncodeInfo = ["-an"] # I guess theres a way to do this better with -map but I can't be bothered for the time
+        elif "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source track if same bitrate and codec
             self.audioEncodeInfo = ["-c:a", "copy", "-metadata:s:a:0", f"coppied_from_source=yes"] #tags as coppied for no reason
 
         self.encodeStage = 1
@@ -316,8 +318,8 @@ class encodeAndValue:
         self.encodeHandler(self.videoPass1)
 
         self.encodeStage = 2
-        self.stage2EncodeFlags = self.starterEncodeInfo+self.videoEncodeInfo
-        if self.audioMute == False: self.stage2EncodeFlags += self.audioEncodeInfo
+        self.stage2EncodeFlags = self.starterEncodeInfo + self.videoEncodeInfo + self.audioEncodeInfo
+        print(self.stage2EncodeFlags)
         self.videoPass2 = subprocess.Popen(self.stage2EncodeFlags+[
                                             "-map_metadata", "0", "-metadata:s:v:0", f"BPS={self.alteredVideoBitrate}", # meaningless BPS tag that **might** work with matroska
                                             "-metadata:g", f"encoding_tool=no7macs video-bottler",
