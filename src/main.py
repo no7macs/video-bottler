@@ -140,10 +140,8 @@ class encodeAndValue:
 
         self.targetVideoBitrate = self.videoBitrate
         # try to make spookie bitrates not rattle everytthing else
-        print(self.targetVideoBitrate)
         if 1.45 < (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)):
             self.targetVideoBitrate = ((self.videoHeight+self.videoWidth)*1.45)
-        print(self.targetVideoBitrate)
 
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
         self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.targetVideoBitrate else self.targetVideoBitrate
@@ -290,6 +288,8 @@ class encodeAndValue:
                     self.taskStats["totalSize"] = int(progressText.partition('=')[-1])
                 elif progressText.startswith("out_time_ms="):
                     self.taskStats["outTime"] = int(progressText.partition('=')[-1])
+                    if self.taskStats["outTime"] < 0:
+                        self.taskStats["outTime"] = 0
                 elif progressText.startswith("dup_frames="):
                     self.taskStats["dumpedFrames"] = int(progressText.partition('=')[-1])
                 elif progressText.startswith("drop_frames="):
@@ -393,6 +393,7 @@ class selectFileWindow(TkinterDnD.Tk):
     def __init__(self, *args, **kwargs):
         TkinterDnD.Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
+        self.lift()
         #customtkinter.set_appearance_mode("system")
         self.file = ""
         #customtkinter.set_widget_scaling(1000)
@@ -511,7 +512,9 @@ class timeChangeEntries(Frame):
 
     def changeTime(self, *args):
         print(args)
-        if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == '') and self.startTimeStringVar.get().isdigit() and self.endTimeStringVar.get().isdigit():
+        if self.startTimeStringVar.get().isdigit() and self.endTimeStringVar.get().isdigit():
+            print("only didgits")
+        if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == ''):
             valueTings.setUsedTime(float(self.startTimeStringVar.get()), float(self.endTimeStringVar.get()))
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
@@ -614,9 +617,7 @@ class mainWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
-        self.videoPhaseStatFrame = Frame(self)
-        self.videoPhaseStatFrame.grid(row=0, column=0, sticky=W)
-
+        self.lift()
         self.changeDurationFrame = timeChangeEntries(self)
         self.changeDurationFrame.grid(row=1, column=0, sticky=W)
         #self.resolutionChangeFrame = resolutionChangeEntries(self)
@@ -656,6 +657,7 @@ class encodeStatusWindow(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
+        self.lift()
         self.encodeStatFrame = Frame(self)
         self.encodeStatFrame.pack(anchor=W)
 
