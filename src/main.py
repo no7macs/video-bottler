@@ -31,6 +31,7 @@ class encodeAndValue:
     def __init__(self) -> None:
         self.file = ""
         self.audioMute = False
+        self.customResolutionFlag = False
         self.outFile = ""
         self.fileEnding = "webm"
 
@@ -70,10 +71,9 @@ class encodeAndValue:
         self.setSourceVideoBitrate()
         self.setUsedTime(self.startTime, self.endTime)
         self.setTargetAudioVideoBitrate()
-        self.setTargetVideoSize()
         self.setAlteredAudioVideoBitrate(-1)
-        videoX, videoY = self.getTargetVideoSize()[0:2]
-        self.setAlteredVideoSize(videoX, videoY)
+        self.setTargetVideoSize()
+        self.setAlteredVideoSize(self.targetVideoWidth, self.targetVideoHeight)
 
     def setFile(self, file):
         self.file = file
@@ -146,7 +146,7 @@ class encodeAndValue:
         #min max the bitrate with the input video stream bitrate and the max size (minus audio stream)
         self.targetVideoBitrate = a if (a := (self.upperVideoSize / (1000 * self.usedDuration)) - self.targetAudioBitrate) < self.targetVideoBitrate else self.targetVideoBitrate
         #self.targetVideoBitrate = (self.preferedUpperVideoSize / ((1000 * self.videoLength)- self.audioBitrate))
-        self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
+        #self.bitrateDifference = self.targetVideoBitrate/self.videoBitrate
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return()
 
@@ -170,6 +170,7 @@ class encodeAndValue:
         elif self.audioUsagePrecentage == -1:
             self.alteredAudioBitrate = self.targetAudioBitrate
             self.alteredVideoBitrate = self.targetVideoBitrate
+        self.bitrateDifference = self.alteredVideoBitrate/self.videoBitrate
         return()
 
     def setAlteredVideoSize(self, videoX:float, videoY:float, maxAtSource:bool=True, maintainOriginalRatio:bool=True) -> None:
@@ -194,6 +195,10 @@ class encodeAndValue:
 
     def setAudioMuteFlag(self, mute:bool) -> None:
         self.audioMute = mute
+        return()
+    
+    def setCustomResolutionFlag(self, resolutionFlag:bool) -> None:
+        self.customResolutionFlag = resolutionFlag
         return()
 
     def setOutFile(self, outFile:str) -> None:
@@ -242,6 +247,9 @@ class encodeAndValue:
 
     def getOutFileEndging(self) -> str:
         return(self.fileEnding)
+
+    def getCustomResolutionFlag(self) -> bool:
+        return(self.customResolutionFlag)
 
     #  --EVERYTHING FROM THIS POINT FORWARD IS FOR ENCODING ONLY--
     def getEncodeStatus(self) -> float:
@@ -310,8 +318,6 @@ class encodeAndValue:
         #valueTings.setAlteredVideoSize(valueTings.getTargetVideoSize()[0:2])
         self.videoX, self.videoY, self.bitDiff = valueTings.getAlteredVideoSize()
 
-        #newfile = filedialog.asksaveasfilename(title="save as", initialdir=os.path.dirname(self.file), initialfile=f"{os.path.splitext(os.path.basename(self.file))[0]}-1.{self.fileEnding}", filetypes=[("webm","webm")], defaultextension=".webm")
-        
         self.starterEncodeInfo = ["ffmpeg.exe", "-y", "-loglevel", "error", "-i", self.file]
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k", "-pix_fmt", "yuv420p",
                                 "-c:v",  self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
@@ -535,7 +541,7 @@ class timeChangeEntries(Frame):
     def resetToDefault(self):
         self.startTimeStringVar.set(self.usedStartTime)
         self.endTimeStringVar.set(self.usedEndTime)
-        
+
 
 class resolutionChangeEntries(Frame):
     def __init__(self, *args, **kwargs):
@@ -549,15 +555,28 @@ class resolutionChangeEntries(Frame):
         self.heightStringVar = StringVar()
         self.widthEntryLabel = Label(self, text="Width:")
         self.widthEntryLabel.grid(row=0, column=2)
-        self.widthEntry = Entry(self, textvariable=self.widthStringVar)
+        self.widthEntry = Entry(self, textvariable=self.widthStringVar, state="disabled")
         self.widthEntry.grid(row=0, column=3)
         self.heightEntryLabel = Label(self, text="Height:")
         self.heightEntryLabel.grid(row=0, column=4)
-        self.heightEntry = Entry(self, textvariable=self.widthStringVar)
+        self.heightEntry = Entry(self, textvariable=self.heightStringVar, state="disabled")
         self.heightEntry.grid(row=0, column=5)
+        valueTings.setCustomResolutionFlag(False)
+
+    def updateResolutionIfNotCustom(self, width, height) -> None:
+        if self.customResolution.get() == 0:
+            self.widthStringVar.set(str(width))
+            self.heightStringVar.set(str(height))
 
     def customAudioToggle(self):
-        pass # this function will turn custom resolutions on and off
+        if self.customResolution.get() == 0:
+            self.widthEntry.config(state="disabled")
+            self.heightEntry.config(state="disabled")
+            valueTings.setCustomResolutionFlag(False)
+        elif self.customResolution.get() == 1:
+            self.widthEntry.config(state="normal")
+            self.heightEntry.config(state="normal")
+            valueTings.setCustomResolutionFlag(True)
 
 
 # needs to be redone to use ONLY altered variables and readjust on time change
@@ -587,10 +606,14 @@ class bitrateSlider(Frame):
             bitrateRatio = self.bitrateRatioSlider.get()
         self.audioBitrateLabel.place(x=(((self.bitrateRatioSlider.coords()[0])/2)))
         self.videoBitrateLabel.place(x=((self.bitrateRatioSlider.coords()[0]+self.bitrateRatioSlider.cget("length")-self.videoBitrateLabel.winfo_width())/2))
-        valueTings.setTargetVideoSize()
         valueTings.setAlteredAudioVideoBitrate(bitrateRatio)
-        videoX, videoY = valueTings.getTargetVideoSize()[0:2]
-        valueTings.setAlteredVideoSize(videoX, videoY)
+        valueTings.setTargetVideoSize()
+        #  will have to change somewhere else, I don't want to break namespace again (I have enough nightmares as is)
+        if not valueTings.getCustomResolutionFlag():
+            videoX, videoY = valueTings.getTargetVideoSize()[0:2]
+            valueTings.setAlteredVideoSize(videoX, videoY)
+            self.master.resolutionChangeFrame.updateResolutionIfNotCustom(videoX, videoY)
+        #print(valueTings.getTargetVideoSize())
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
         self.audioBitrateLabel["text"] = str(int(self.alteredAudioBitrate))+"kb/s"
         self.videoBitrateLabel["text"] = str(int(self.alteredVideoBitrate))+"kb/s"
@@ -622,8 +645,8 @@ class mainWindow(Tk):
         self.lift()
         self.changeDurationFrame = timeChangeEntries(self)
         self.changeDurationFrame.grid(row=1, column=0, sticky=W)
-        #self.resolutionChangeFrame = resolutionChangeEntries(self)
-        #self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
+        self.resolutionChangeFrame = resolutionChangeEntries(self)
+        self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
         self.snapToAudioValuesBox.grid(row=3, column=0, sticky=W)
