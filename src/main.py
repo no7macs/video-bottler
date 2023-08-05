@@ -150,15 +150,6 @@ class encodeAndValue:
         print("--targetVideoBitrate--"+str(self.targetVideoBitrate))
         return()
 
-    def setTargetVideoSize(self) -> None:
-        self.targetVideoWidth = (self.videoWidth * self.bitrateDifference) + 280
-        self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
-        #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
-        #if (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)) > 1:
-        print((self.targetVideoBitrate/(self.targetVideoHeight*self.targetVideoWidth*8)))
-        print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
-        return()
-
     def setAlteredAudioVideoBitrate(self, precentage) -> None:
         self.audioUsagePrecentage = precentage
         if not self.audioUsagePrecentage == -1:
@@ -173,9 +164,19 @@ class encodeAndValue:
         self.bitrateDifference = self.alteredVideoBitrate/self.videoBitrate
         return()
 
+    def setTargetVideoSize(self) -> None:
+        self.targetVideoWidth = (self.videoWidth * self.bitrateDifference) + 280
+        self.targetVideoHeight = self.targetVideoWidth / self.videoXYRatio
+        #self.targetVideoWidth = a if (a if (a:=((targetVideoBitrate/100)*145)) > 280 else 280) < self.targetVideoWidth else self.targetVideoWidth
+        #if (self.targetVideoBitrate/(self.videoHeight+self.videoWidth)) > 1:
+        print((self.targetVideoBitrate/(self.targetVideoHeight*self.targetVideoWidth*8)))
+        print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
+        return()
+    
     def setAlteredVideoSize(self, videoX:float, videoY:float, maxAtSource:bool=True, maintainOriginalRatio:bool=True) -> None:
         #print((self.alteredVideoBitrate/self.targetVideoBitrate))
         self.alteredVideoWidth = videoX*(self.alteredVideoBitrate/self.targetVideoBitrate)
+        print(self.alteredVideoWidth)
         if maxAtSource == True:
             self.alteredVideoWidth = min(self.alteredVideoWidth, self.videoWidth)
 
@@ -183,6 +184,8 @@ class encodeAndValue:
             self.alteredVideoHeight = self.alteredVideoWidth/self.videoXYRatio
         elif maintainOriginalRatio == False:
             self.alteredVideoHeight = videoY
+        #self.alteredVideoWidth, self.alteredVideoHeight = round(self.alteredVideoWidth), round(self.alteredVideoHeight)
+        print("--alteredVideoSize--"+str(self.alteredVideoWidth)+"x"+str(self.alteredVideoHeight))
         return()
 
     def setNumberOfFrames(self) -> None:
@@ -565,8 +568,8 @@ class resolutionChangeEntries(Frame):
 
     def updateResolutionIfNotCustom(self, width, height) -> None:
         if self.customResolution.get() == 0:
-            self.widthStringVar.set(str(width))
-            self.heightStringVar.set(str(height))
+            self.widthStringVar.set(str(round(width)))
+            self.heightStringVar.set(str(round(height)))
 
     def customAudioToggle(self):
         if self.customResolution.get() == 0:
@@ -612,6 +615,7 @@ class bitrateSlider(Frame):
         if not valueTings.getCustomResolutionFlag():
             videoX, videoY = valueTings.getTargetVideoSize()[0:2]
             valueTings.setAlteredVideoSize(videoX, videoY)
+            videoX, videoY = valueTings.getAlteredVideoSize()[0:2]
             self.master.resolutionChangeFrame.updateResolutionIfNotCustom(videoX, videoY)
         #print(valueTings.getTargetVideoSize())
         self.alteredAudioBitrate, self.alteredVideoBitrate = valueTings.getAlteredAudioVideoBitrate()
@@ -622,7 +626,6 @@ class bitrateSlider(Frame):
         elif self.alteredAudioBitrate > 0:
             valueTings.setAudioMuteFlag(False)
         #self._job = self.after(1000, self.bitrateRatioSliderUpdate(bitrateRatio))
-
 
     def setDefaults(self) -> None:
         valueTings.setAlteredAudioVideoBitrate(-1)
