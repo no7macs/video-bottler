@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import os
+import re
 import time
 import json
 import shutil
@@ -173,10 +174,10 @@ class encodeAndValue:
         print("--targetVideoSize--"+str(self.targetVideoWidth)+"x"+str(self.targetVideoHeight))
         return()
     
-    def setAlteredVideoSize(self, videoX:float, videoY:float, maxAtSource:bool=True, maintainOriginalRatio:bool=True) -> None:
+    def setAlteredVideoSize(self, videoX:int, videoY:int, maxAtSource:bool=True, maintainOriginalRatio:bool=True) -> None:
         #print((self.alteredVideoBitrate/self.targetVideoBitrate))
-        self.alteredVideoWidth = videoX*(self.alteredVideoBitrate/self.targetVideoBitrate)
-        print(self.alteredVideoWidth)
+        self.alteredVideoWidth = videoX #*(self.alteredVideoBitrate/self.targetVideoBitrate)
+        #print(self.alteredVideoWidth)
         if maxAtSource == True:
             self.alteredVideoWidth = min(self.alteredVideoWidth, self.videoWidth)
 
@@ -239,7 +240,7 @@ class encodeAndValue:
     def getAudioUsagePrecentage(self) -> float:
         return(self.audioUsagePrecentage)
 
-    def getAlteredVideoSize(self) -> float:
+    def getAlteredVideoSize(self) -> int:
         return(self.alteredVideoWidth, self.alteredVideoHeight, (self.alteredVideoWidth/self.alteredVideoHeight))
 
     def getNumberOfFrames(self) -> float:
@@ -325,14 +326,14 @@ class encodeAndValue:
         self.videoEncodeInfo = ["-b:v", f"{self.alteredVideoBitrate}k", "-pix_fmt", "yuv420p",
                                 "-c:v",  self.videoEncoder, "-maxrate", f"{self.alteredVideoBitrate*0.8}k", 
                                 "-bufsize", f"{self.alteredVideoBitrate*0.8*2}k", "-minrate", "0k",
-                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
+                                "-vf", f"scale={self.videoX}:{self.videoY}:flags=lanczos", "-aspect", f"{self.videoX}:{self.videoY}", "-ss", f"{self.usedStartTime}", "-to", f"{self.usedEndTime}",
                                 "-deadline", "good", "-auto-alt-ref", "1", "-lag-in-frames", "24",
                                 "-threads", "0", "-row-mt", "1"]
         self.audioEncodeInfo = ["-c:a", self.audioCodec, "-b:a", f"{self.alteredAudioBitrate}k", "-frame_duration", "20"]
         if self.audioMute == True:
             self.audioEncodeInfo = ["-an"] # I guess theres a way to do this better with -map but I can't be bothered for the time
         elif "opus" in self.originalAudioCodec and int(self.audioBitrate) == self.alteredAudioBitrate: #copy source audio track if same bitrate and codec
-            self.audioEncodeInfo = ["-c:a", "copy", "-metadata:s:a:0", f"coppied_from_source=yes"] #tags if coppied for no reason
+            self.audioEncodeInfo = ["-c:a", "copy"] #tags if coppied for no reason
 
         self.encodeStage = 1
         self.videoPass1 = subprocess.Popen(self.starterEncodeInfo+self.videoEncodeInfo+[
@@ -523,15 +524,16 @@ class timeChangeEntries(Frame):
 
     def changeTime(self, *args):
         print(args)
-        if self.startTimeStringVar.get().isdigit() and self.endTimeStringVar.get().isdigit():
-            print("only didgits")
+        #self.startTimeStringVar.set(re.sub("^.*?\.[^.]*.", "", (self.startTimeStringVar.get())))
+        print(self.startTimeStringVar.get())
         if (not self.startTimeStringVar.get() == '') and (not self.endTimeStringVar.get() == ''):
             valueTings.setUsedTime(float(self.startTimeStringVar.get()), float(self.endTimeStringVar.get()))
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setTargetVideoSize()
             valueTings.setAlteredAudioVideoBitrate(valueTings.getAudioUsagePrecentage())
             videoX, videoY = valueTings.getTargetVideoSize()[0:2]
-            valueTings.setAlteredVideoSize(videoX, videoY)
+            if not valueTings.getCustomResolutionFlag():
+                valueTings.setAlteredVideoSize(videoX, videoY)
             self.master.videoaudioBitrateSlider.setDefaults() #  namespace is a lie
 
     def defocusInputs(self, *args):
@@ -556,6 +558,8 @@ class resolutionChangeEntries(Frame):
         self.customSizeCheckbox.grid(row=0, column=1)
         self.widthStringVar = StringVar()
         self.heightStringVar = StringVar()
+        self.widthStringVar.trace_add("write", self.changeResolution)
+        self.heightStringVar.trace_add("write", self.changeResolution)
         self.widthEntryLabel = Label(self, text="Width:")
         self.widthEntryLabel.grid(row=0, column=2)
         self.widthEntry = Entry(self, textvariable=self.widthStringVar, state="disabled")
@@ -564,7 +568,16 @@ class resolutionChangeEntries(Frame):
         self.heightEntryLabel.grid(row=0, column=4)
         self.heightEntry = Entry(self, textvariable=self.heightStringVar, state="disabled")
         self.heightEntry.grid(row=0, column=5)
+        self.widthEntry.bind("<FocusOut>", self.defocusInputs)
+        self.heightEntry.bind("<FocusOut>", self.defocusInputs)
         valueTings.setCustomResolutionFlag(False)
+
+    def changeResolution(self, *args) -> None:
+        print(args)
+        self.widthStringVar.set(re.sub("[^0-9]", "", (self.widthStringVar.get())))
+        self.heightStringVar.set(re.sub("[^0-9]", "", (self.heightStringVar.get())))
+        if (not self.widthStringVar.get() == '') and (not self.heightStringVar.get() == ''):
+            valueTings.setAlteredVideoSize(videoX=int(self.widthStringVar.get()), videoY=int(self.heightStringVar.get()), maintainOriginalRatio=False)
 
     def updateResolutionIfNotCustom(self, width, height) -> None:
         if self.customResolution.get() == 0:
@@ -580,6 +593,13 @@ class resolutionChangeEntries(Frame):
             self.widthEntry.config(state="normal")
             self.heightEntry.config(state="normal")
             valueTings.setCustomResolutionFlag(True)
+
+    def defocusInputs(self, *args):
+        self.changeResolution()
+        self.widthEntry.delete(0, END)
+        self.widthEntry.insert(0, valueTings.getAlteredVideoSize()[0])
+        self.heightEntry.delete(0, END)
+        self.heightEntry.insert(0, valueTings.getAlteredVideoSize()[1])
 
 
 # needs to be redone to use ONLY altered variables and readjust on time change
