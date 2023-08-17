@@ -48,6 +48,7 @@ class encodeAndValue:
                                         stdout = subprocess.PIPE,
                                         stderr = subprocess.STDOUT,
                                         shell = True).stdout)
+        #  this is messy and should be rewrote cuz there better ways to do this
         if self.ffmpegInfoOut["streams"][0]["codec_type"] == 'video':
             self.ffmpegVidStrNum = 0
             self.ffmpegAudStrNum = 1
@@ -55,7 +56,8 @@ class encodeAndValue:
             self.ffmpegVidStrNum = 1
             self.ffmpegAudStrNum = 0
         
-        self.upperVideoSize = (6*8*1024*1024) #megabits
+        self.upperVideoSizeMegabyte = 6
+        self.upperVideoSize = (self.upperVideoSizeMegabyte*8*1024*1024) #megabits
         #self.preferedUpperVideoSize = self.upperVideoSize if self.upperVideoSize < (a:=os.path.getsize(self.file)*8) else a
         self.commonAudioValues = [0,1,6,8,14,16,22,24,32,40,48,64,96,112,160,192,510]
         #  video size
@@ -80,6 +82,10 @@ class encodeAndValue:
         self.file = file
         print(self.file)
         self.outFile = self.file+"-1" #also sets out file just in case
+
+    def setUpperVideoSize(self, sizeMB:float) -> None:
+        self.upperVideoSize = (sizeMB*8*1024*1024)
+        return()
 
     def setSourceTime(self):
         self.startTime = float(self.ffmpegInfoOut["format"]["start_time"]) # sometimes things out a slightly higher number then 0
@@ -468,6 +474,31 @@ class selectFileWindow(TkinterDnD.Tk):
         self.fileSelectEverntLoop()
 
 
+class upperSizeChanger(Frame):
+    def __init__(self, *args, **kwargs):
+        Frame.__init__(self, *args, **kwargs)
+        self.customResolutionDropdownLabel = Label(self, text="File size:")
+        self.customResolutionDropdownLabel.grid(row=0, column=0)
+        self.dropdownOptions = ["6mb 4chan", "8mb Discord (old)", "25mb Discord", "50mb Discord premium", "500mb Discord nitro", "Custom"]
+        self.optionSizes = [6, 8, 25, 50, 500]
+        self.dropdownStringVar = StringVar()
+        self.dropdownStringVar.set(self.dropdownOptions[0])
+        self.fileSizeDropdown = OptionMenu(self, self.dropdownStringVar, *self.dropdownOptions, command=self.changeSize)
+        self.fileSizeDropdown.grid(row=0, column=1)
+
+    def changeSize(self, *args):
+        self.chosenOptionListIndex = self.dropdownOptions.index(args[0])
+        valueTings.setUpperVideoSize(sizeMB=self.optionSizes[self.chosenOptionListIndex])
+
+        valueTings.setSourceTime()
+        valueTings.setSourceAudioBitrate()
+        valueTings.setSourceVideoBitrate()
+
+        valueTings.setTargetAudioVideoBitrate()
+        valueTings.setAlteredAudioVideoBitrate(-1)
+        valueTings.setTargetVideoSize()
+        
+
 #  unused but should replace timeChangeEntries later
 class timeEntry(Frame):
     def __init__(self, textvariable, *args, **kwargs):
@@ -512,7 +543,7 @@ class timeChangeEntries(Frame):
         self.startTimeLabel.grid(column=0, row=0)
         self.startTimeEntry = Entry(self, textvariable=self.startTimeStringVar)
         self.startTimeEntry.grid(column=1, row=0)
-        self.endTimeLabel = Label(self, text="Start:")
+        self.endTimeLabel = Label(self, text="Stop:")
         self.endTimeLabel.grid(column=2, row=0)
         self.endTimeEntry = Entry(self, textvariable=self.endTimeStringVar)
         self.endTimeEntry.grid(column=3, row=0)
@@ -666,21 +697,23 @@ class mainWindow(Tk):
         Tk.__init__(self, *args, **kwargs)
         self.title("Video Bottler")
         self.lift()
+        self.changeSizeFrame = upperSizeChanger(self)
+        self.changeSizeFrame.grid(row=1, column=0, sticky=W)
         self.changeDurationFrame = timeChangeEntries(self)
-        self.changeDurationFrame.grid(row=1, column=0, sticky=W)
+        self.changeDurationFrame.grid(row=2, column=0, sticky=W)
         self.resolutionChangeFrame = resolutionChangeEntries(self)
-        self.resolutionChangeFrame.grid(row=2, column=0, sticky=W)
+        self.resolutionChangeFrame.grid(row=3, column=0, sticky=W)
         self.snapToAudio = IntVar()
         self.snapToAudioValuesBox = Checkbutton(self, text="Snap to common audio bitrates", variable=self.snapToAudio, onvalue=1, offvalue=0, command=lambda:self.videoaudioBitrateSlider.snapToCommonAudioValues(state=bool(self.snapToAudio.get())))
-        self.snapToAudioValuesBox.grid(row=3, column=0, sticky=W)
+        self.snapToAudioValuesBox.grid(row=4, column=0, sticky=W)
         self.videoaudioBitrateSlider = bitrateSlider(self)
-        self.videoaudioBitrateSlider.grid(row=4, column=0)
+        self.videoaudioBitrateSlider.grid(row=5, column=0)
         self.sliderResetDefaultsButton = Button(self, text = "Reset", command=self.resetAll)
-        self.sliderResetDefaultsButton.grid(row=5, column=0, sticky=W)
+        self.sliderResetDefaultsButton.grid(row=6, column=0, sticky=W)
         #self.statusLabel = Label(self, text="")
         #self.statusLabel.pack(anchor=W)
         self.buttonFrame = Frame(self)
-        self.buttonFrame.grid(row=6, column=0, sticky=E)
+        self.buttonFrame.grid(row=7, column=0, sticky=E)
         self.encodeButton = Button(self.buttonFrame, text="encode", command=self.startEncode, width=25)
         self.encodeButton.grid(row=0, column=0)
         self.protocol("WM_DELETE_WINDOW", self.onClose)
