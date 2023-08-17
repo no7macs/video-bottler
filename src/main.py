@@ -479,25 +479,34 @@ class upperSizeChanger(Frame):
         Frame.__init__(self, *args, **kwargs)
         self.customResolutionDropdownLabel = Label(self, text="File size:")
         self.customResolutionDropdownLabel.grid(row=0, column=0)
-        self.dropdownOptions = ["6mb 4chan", "8mb Discord (old)", "25mb Discord", "50mb Discord premium", "500mb Discord nitro", "Custom"]
+        self.dropdownOptions = ["6mb 4chan", "8mb Discord (old)", "25mb Discord", "50mb Discord premium", "500mb Discord nitro"]
         self.optionSizes = [6, 8, 25, 50, 500]
         self.dropdownStringVar = StringVar()
         self.dropdownStringVar.set(self.dropdownOptions[0])
         self.fileSizeDropdown = OptionMenu(self, self.dropdownStringVar, *self.dropdownOptions, command=self.changeSize)
         self.fileSizeDropdown.grid(row=0, column=1)
+        self.customSizeStringVar = StringVar()
+        self.customSizeEntry = Entry(self, textvariable=self.customSizeStringVar)
+        #.bind("<FocusOut>", self.defocusInputs)
 
     def changeSize(self, *args):
         self.chosenOptionListIndex = self.dropdownOptions.index(args[0])
-        valueTings.setUpperVideoSize(sizeMB=self.optionSizes[self.chosenOptionListIndex])
+        if args[0] != "Custom":
+            self.customSizeEntry.pack_forget()
 
-        valueTings.setSourceTime()
-        valueTings.setSourceAudioBitrate()
-        valueTings.setSourceVideoBitrate()
+            valueTings.setUpperVideoSize(sizeMB=self.optionSizes[self.chosenOptionListIndex])
+            #  might be redundent but, like, it's all confusing man
+            valueTings.setSourceTime()
+            valueTings.setSourceAudioBitrate()
+            valueTings.setSourceVideoBitrate()
+            valueTings.setTargetAudioVideoBitrate()
+            valueTings.setAlteredAudioVideoBitrate(-1)
+            valueTings.setTargetVideoSize()
 
-        valueTings.setTargetAudioVideoBitrate()
-        valueTings.setAlteredAudioVideoBitrate(-1)
-        valueTings.setTargetVideoSize()
-        
+            self.master.resetAll()
+        else:
+            self.customSizeEntry.grid(row=0, column=2)
+
 
 #  unused but should replace timeChangeEntries later
 class timeEntry(Frame):
