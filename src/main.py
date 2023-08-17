@@ -416,7 +416,6 @@ class selectFileWindow(TkinterDnD.Tk):
         self.mainloop()
 
     def fileSelectEverntLoop(self) -> None: #also checks if enter was pressed
-        self.drop_target_register(DND_FILES)
         if keyboard.is_pressed("enter") and not self.downloadEntry.get() == "":
             self.downloadFromUrl()
         if not self.file == "" and os.path.exists(self.file):
@@ -432,6 +431,7 @@ class selectFileWindow(TkinterDnD.Tk):
         self.file=file.replace("{","").replace("}","")
         #self.checkFile()
         self.drop_target_unregister()
+        self.drop_target_register(DND_FILES)
 
     def fileSelectFrame(self):
         self.selectFileFrame = Frame(self)
