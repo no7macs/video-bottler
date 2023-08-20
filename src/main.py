@@ -496,9 +496,6 @@ class upperSizeChanger(Frame):
 
             valueTings.setUpperVideoSize(sizeMB=self.optionSizes[self.chosenOptionListIndex])
             #  might be redundent but, like, it's all confusing man
-            valueTings.setSourceTime()
-            valueTings.setSourceAudioBitrate()
-            valueTings.setSourceVideoBitrate()
             valueTings.setTargetAudioVideoBitrate()
             valueTings.setAlteredAudioVideoBitrate(-1)
             valueTings.setTargetVideoSize()
