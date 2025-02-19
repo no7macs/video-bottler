@@ -390,10 +390,12 @@ class ytdlpDownloader:
     def ytdlpHandler(self):
         ydl_opts = {
             'outtmpl':f"""{self.tempFolder}/%(title)s-%(id)s.%(ext)s""",
-            'cookiefile':'./cookies.txt',
+            # use cookies file in directory of executable if it exists, otherwise defualt to the one in the tmp folder
+            'cookiefile':(a if(os.path.exists(a := (os.path.join(os.path.dirname(sys.executable),"cookies.txt")))) else './cookies.txt'),
             'logger': self.MyLogger(),
             'noplaylist': True
         }
+        print("--cookiefile--"+ydl_opts["cookiefile"])
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             #  needs to check if it's none and raise some kind of error/ message (should be done after this bits threaded)
             #  also there are just errors and other things different places throw that should be handled
